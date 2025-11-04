@@ -1,0 +1,64 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class PosterNotes extends StatelessWidget {
+  const PosterNotes({super.key, required this.notes});
+
+  final dynamic notes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 10, right: 0, top: 0, bottom: 124),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Container(
+            width: 240,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.green.shade700,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                bottomLeft: Radius.circular(12),
+              ),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  "ملاحظات",
+                  style: GoogleFonts.notoKufiArabic(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(width: 16),
+                Icon(Icons.edit_note_sharp, size: 32, color: Colors.white),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(right: 24, top: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                ...notes.map(
+                  (note) => Text(
+                    note,
+                    textAlign: TextAlign.right,
+                    style: GoogleFonts.notoKufiArabic(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

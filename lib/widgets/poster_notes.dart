@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class PosterNotes extends StatelessWidget {
-  const PosterNotes({super.key, required this.notes});
+  const PosterNotes({
+    super.key,
+    required this.notes,
+    required this.notesTextSize,
+  });
 
   final dynamic notes;
+  final double notesTextSize;
 
   @override
   Widget build(BuildContext context) {
@@ -29,12 +34,17 @@ class PosterNotes extends StatelessWidget {
                   "ملاحظات",
                   style: GoogleFonts.notoKufiArabic(
                     color: Colors.white,
-                    fontSize: 32,
+                    fontSize: notesTextSize,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
                 SizedBox(width: 16),
-                Icon(Icons.edit_note_sharp, size: 32, color: Colors.white),
+                Image.asset(
+                  "assets/note.png",
+                  width: 32,
+                  height: 32,
+                  fit: BoxFit.contain,
+                ),
               ],
             ),
           ),
@@ -49,7 +59,7 @@ class PosterNotes extends StatelessWidget {
                     note,
                     textAlign: TextAlign.right,
                     style: GoogleFonts.notoKufiArabic(
-                      fontSize: 32,
+                      fontSize: 28,
                       fontWeight: FontWeight.bold,
                     ),
                   ),

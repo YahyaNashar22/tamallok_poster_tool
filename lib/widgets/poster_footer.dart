@@ -16,16 +16,17 @@ class PosterFooter extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.phone_in_talk_outlined,
-                size: 48,
-                color: Colors.black,
+              Image.asset(
+                "assets/phone.png",
+                width: 32,
+                height: 32,
+                fit: BoxFit.cover,
               ),
               const SizedBox(width: 6),
               Text(
                 poster['phone_number'] ?? '',
                 style: const TextStyle(
-                  fontSize: 32,
+                  fontSize: 28,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -35,11 +36,17 @@ class PosterFooter extends StatelessWidget {
           Text(
             "سيارة كوم بالتعاون\nمع بيت التملك",
             style: GoogleFonts.amiri(
-              fontSize: 32,
+              fontSize: 28,
               color: Colors.black,
               fontWeight: FontWeight.bold,
             ),
             textAlign: TextAlign.right,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            "#${poster['id'].toString()}",
+            style: TextStyle(fontStyle: FontStyle.italic, fontSize: 16),
+            textAlign: TextAlign.end,
           ),
         ],
       ),

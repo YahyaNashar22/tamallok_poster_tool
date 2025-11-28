@@ -22,6 +22,21 @@ class PosterViewerScreen extends StatefulWidget {
 
 class _PosterViewerScreenState extends State<PosterViewerScreen> {
   final GlobalKey _exportKey = GlobalKey();
+  bool _exporting = false;
+  double _posterWidth = 1080;
+  double _posterHeight = 1080;
+  double _posterPaddingTop = 4;
+  double _logoHeight = 100;
+  double _logoAyaSizedBoxHeight = 12;
+  double _ayaWidth = 350;
+  double _ayaSizedBoxHeight = 12;
+  double _carImgWidth = 540;
+  double _carImgHeight = 182;
+  double _carInfoHeight = 576;
+  double _carInfoPaddingY = 8;
+  double _carInfoTextSize = 24;
+  double _carInfoIconSize = 22;
+  double notesTextSize = 24;
 
   String _formatValue(dynamic value) {
     if (value == null) return '';
@@ -49,8 +64,53 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
     return value.toString();
   }
 
-  Future<void> _exportAsImage() async {
+  Future<void> _exportAsImage(String platform) async {
+    if (_exporting) return;
+    setState(() => _exporting = true);
+
     try {
+      // fix styles: make `meta` a square 1:1 and `snap` a long 9:16
+      if (platform == 'snap') {
+        setState(() {
+          // Snap layout: vertical 9:16 (typical story/snap size)
+          _posterWidth = 1080;
+          _posterHeight = 1920;
+          _posterPaddingTop = 48;
+          _logoHeight = 124;
+          _logoAyaSizedBoxHeight = 32;
+          _ayaWidth = 400;
+          _ayaSizedBoxHeight = 48;
+          _carImgWidth = 600;
+          _carImgHeight = 304;
+          _carInfoHeight = 948;
+          _carInfoPaddingY = 16;
+          _carInfoTextSize = 32;
+          _carInfoIconSize = 24;
+          notesTextSize = 32;
+        });
+      } else if (platform == 'meta') {
+        setState(() {
+          // Meta layout: square 1:1 (e.g. Instagram/Facebook square post)
+          _posterWidth = 1080;
+          _posterHeight = 1080;
+          _posterPaddingTop = 4;
+          _logoHeight = 100;
+          _logoAyaSizedBoxHeight = 12;
+          _ayaWidth = 350;
+          _ayaSizedBoxHeight = 12;
+          _carImgWidth = 540;
+          _carImgHeight = 182;
+          _carInfoHeight = 576;
+          _carInfoPaddingY = 8;
+          _carInfoTextSize = 24;
+          _carInfoIconSize = 22;
+          notesTextSize = 24;
+        });
+      }
+      // Wait for the UI to rebuild with the new size
+      await Future.delayed(Duration.zero);
+      await WidgetsBinding.instance.endOfFrame;
+
       RenderRepaintBoundary boundary =
           _exportKey.currentContext!.findRenderObject()
               as RenderRepaintBoundary;
@@ -68,7 +128,7 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
       }
 
       final file = File(
-        '${exportDir.path}/poster_${DateTime.now().millisecondsSinceEpoch}.png',
+        '${exportDir.path}/${platform}_poster_${DateTime.now().millisecondsSinceEpoch}.png',
       );
       await file.writeAsBytes(pngBytes);
 
@@ -79,6 +139,8 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('❌ Failed to export: $e')));
+    } finally {
+      setState(() => _exporting = false);
     }
   }
 
@@ -100,11 +162,29 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
       appBar: AppBar(
         title: const Text("Poster Viewer"),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.download),
-            onPressed: _exportAsImage,
-            tooltip: "Save as Instagram Image",
-          ),
+          _exporting
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.facebook),
+                      onPressed: () => _exportAsImage('meta'),
+                      tooltip: "Save as Meta Image",
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.snapchat),
+                      onPressed: () => _exportAsImage('snap'),
+                      tooltip: "Save as Snap Image",
+                    ),
+                  ],
+                ),
         ],
       ),
       body: Center(
@@ -114,13 +194,17 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
             child: Container(
               decoration: BoxDecoration(
                 image: DecorationImage(
-                  image: AssetImage('assets/stone_texture_background.jpg'),
+                  image: AssetImage('assets/poster_bg.jpg'),
                   fit: BoxFit.cover,
                 ),
               ),
-              width: 900,
-              height: 1600,
-              padding: const EdgeInsets.only(left: 32, top: 48, bottom: 24),
+              width: _posterWidth,
+              height: _posterHeight,
+              padding: EdgeInsets.only(
+                left: 32,
+                top: _posterPaddingTop,
+                bottom: 24,
+              ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
@@ -128,33 +212,18 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                   Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        "سيارة كوم",
-                        style: GoogleFonts.amiri(
-                          fontSize: 48,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green.shade800,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        "SAYARA COM",
-                        style: TextStyle(
-                          fontSize: 24,
-                          color: Colors.green,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      Text(
-                        "وَأَنْ تَصَدَّقُوا خَيْرٌ لَكُمْ إِنْ كُنْتُمْ تَعْلَمُونَ",
-                        style: GoogleFonts.amiri(
-                          fontSize: 48,
-                          color: Colors.black87,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 48),
+                      Image.asset('assets/green_logo.png', height: _logoHeight),
+                      SizedBox(height: _logoAyaSizedBoxHeight),
+                      // Text(
+                      //   "وَأَنْ تَصَدَّقُوا خَيْرٌ لَكُمْ إِنْ كُنْتُمْ تَعْلَمُونَ",
+                      //   style: GoogleFonts.amiri(
+                      //     fontSize: 48,
+                      //     color: Colors.black87,
+                      //   ),
+                      //   textAlign: TextAlign.center,
+                      // ),
+                      Image.asset("assets/aya.png", width: _ayaWidth),
+                      SizedBox(height: _ayaSizedBoxHeight),
                     ],
                   ),
 
@@ -170,14 +239,14 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                                   children: [
                                     Image.file(
                                       File(e),
-                                      width: 424,
-                                      height: 292,
+                                      width: _carImgWidth,
+                                      height: _carImgHeight,
                                       fit: BoxFit.cover,
                                       errorBuilder:
                                           (context, error, stackTrace) {
                                             return Container(
-                                              width: 424,
-                                              height: 292,
+                                              width: _carImgWidth,
+                                              height: _carImgHeight,
                                               color: Colors.grey.shade300,
                                               alignment: Alignment.center,
                                               child: const Icon(
@@ -197,7 +266,7 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
 
                       // Details
                       SizedBox(
-                        height: 890,
+                        height: _carInfoHeight,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -205,33 +274,63 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                             _info(
                               "النوع",
                               poster['type'],
-                              FaIcon(FontAwesomeIcons.car, size: 32),
+                              Image.asset(
+                                "assets/car.png",
+                                width: 32,
+                                height: 32,
+                                fit: BoxFit.contain,
+                              ),
                             ),
                             _info(
                               "الموديل",
                               poster['model'],
-                              FaIcon(FontAwesomeIcons.carOn, size: 32),
+                              Image.asset(
+                                "assets/cars.png",
+                                width: 48,
+                                height: 48,
+                                fit: BoxFit.contain,
+                              ),
                             ),
                             _info(
                               "السعر",
                               "${_formatValue(poster['price'])} SAR",
-                              FaIcon(FontAwesomeIcons.moneyBill1Wave, size: 32),
+                              Image.asset(
+                                "assets/price.png",
+                                width: 32,
+                                height: 32,
+                                fit: BoxFit.contain,
+                              ),
                               color: Colors.red,
                             ),
                             _info(
                               "المسافة\n المقطوعة",
                               "${_formatValue(poster['distance_traveled'])} كم",
-                              FaIcon(FontAwesomeIcons.road, size: 32),
+                              Image.asset(
+                                "assets/speed.png",
+                                width: 32,
+                                height: 32,
+                                fit: BoxFit.contain,
+                              ),
                             ),
                             _info(
                               "حجم المحرك",
                               poster['engine_size'],
-                              FaIcon(FontAwesomeIcons.expand, size: 32),
+                              Image.asset(
+                                "assets/maximize.png",
+                                width: 32,
+                                height: 32,
+                                fit: BoxFit.contain,
+                              ),
                             ),
                             _info(
                               "الموقع",
                               poster['location'],
-                              FaIcon(FontAwesomeIcons.locationDot, size: 32),
+                              Image.asset(
+                                "assets/location.png",
+                                width: 32,
+                                height: 32,
+                                fit: BoxFit.contain,
+                              ),
                             ),
                           ],
                         ),
@@ -244,7 +343,7 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       PosterFooter(poster: poster),
-                      PosterNotes(notes: notes),
+                      PosterNotes(notes: notes, notesTextSize: notesTextSize),
                     ],
                   ),
                 ],
@@ -259,7 +358,7 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
   Widget _info(
     String label,
     String? value,
-    FaIcon icon, {
+    Widget icon, {
     Color color = Colors.black87,
   }) {
     return Container(
@@ -271,23 +370,40 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
         ),
       ),
       width: 420,
-      padding: const EdgeInsets.only(left: 24, right: 48, top: 16, bottom: 16),
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 48,
+        top: _carInfoPaddingY,
+        bottom: _carInfoPaddingY,
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           icon,
-          Text(
-            "$value ",
-            textAlign: TextAlign.right,
-            style: TextStyle(fontSize: 32, color: color),
-          ),
-          Text(
-            " :$label",
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              fontSize: 24,
-              color: color,
-              fontWeight: FontWeight.w900,
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Flexible(
+                  child: Text(
+                    "$value ",
+                    textAlign: TextAlign.right,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: _carInfoTextSize, color: color),
+                  ),
+                ),
+
+                Text(
+                  " :$label",
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    fontSize: _carInfoIconSize,
+                    color: color,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

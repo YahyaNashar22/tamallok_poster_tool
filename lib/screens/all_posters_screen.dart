@@ -11,30 +11,112 @@ class AllPostersScreen extends StatefulWidget {
 }
 
 class _AllPostersScreenState extends State<AllPostersScreen> {
-  List<Map<String, dynamic>> _posters = [];
+  // Original list of all posters
+  List<Map<String, dynamic>> _allPosters = [];
+  // List shown to the user (filtered list)
+  List<Map<String, dynamic>> _filteredPosters = [];
+
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadPosters();
+    // Start listening to changes in the search field
+    _searchController.addListener(_filterPosters);
+  }
+
+  @override
+  void dispose() {
+    // Clean up the controller when the widget is disposed
+    _searchController.removeListener(_filterPosters);
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPosters() async {
     final posters = await PosterDbService.instance.fetchAllPosters();
-    setState(() => _posters = posters);
+    setState(() {
+      _allPosters = posters;
+      _filteredPosters =
+          posters; // Initialize the filtered list with all posters
+    });
+  }
+
+  void _filterPosters() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        // If the search query is empty, show all posters
+        _filteredPosters = _allPosters;
+      } else {
+        // Filter the original list based on the query
+        _filteredPosters = _allPosters.where((poster) {
+          final type = poster['type']?.toLowerCase() ?? '';
+          final model = poster['model']?.toLowerCase() ?? '';
+          final id = poster['id']?.toString().toLowerCase() ?? ''; // Check ID
+
+          // Search by type, model, or ID
+          return type.contains(query) ||
+              model.contains(query) ||
+              id.contains(query);
+        }).toList();
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('All Posters')),
-      body: _posters.isEmpty
-          ? const Center(child: Text('No posters created yet.'))
+      appBar: AppBar(
+        title: const Text('All Posters'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60.0),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search by Type, Model, or ID...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          _filterPosters(); // Re-run filter to show all
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(25.0),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 0,
+                  horizontal: 16,
+                ),
+              ),
+              onChanged: (_) => _filterPosters(),
+            ),
+          ),
+        ),
+      ),
+      body: _filteredPosters.isEmpty
+          ? Center(
+              child: Text(
+                _searchController.text.isEmpty
+                    ? 'No posters created yet.'
+                    : 'No results found for "${_searchController.text}"',
+              ),
+            )
           : ListView.builder(
-              itemCount: _posters.length,
+              itemCount: _filteredPosters.length,
               padding: const EdgeInsets.all(12),
               itemBuilder: (context, i) {
-                final poster = _posters[i];
+                final poster = _filteredPosters[i]; // Use filtered list
+                // ... rest of your existing ListTile code ...
                 return InkWell(
                   onTap: () {
                     Navigator.push(

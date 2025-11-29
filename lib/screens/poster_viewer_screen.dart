@@ -29,7 +29,7 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
   double _posterWidth = 1080;
   double _posterHeight = 1080;
   double _posterPaddingTop = 4;
-  double _logoHeight = 100;
+  double _logoHeight = 50;
   double _logoAyaSizedBoxHeight = 12;
   double _ayaWidth = 350;
   double _ayaSizedBoxHeight = 12;
@@ -89,13 +89,13 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
         _posterWidth = 1080;
         _posterHeight = 1920;
         _posterPaddingTop = 0;
-        _logoHeight = 124;
+        _logoHeight = 75;
         _logoAyaSizedBoxHeight = 32;
-        _ayaWidth = 400;
+        _ayaWidth = 250;
         _ayaSizedBoxHeight = 0;
         _carImgWidth = 600;
-        _carImgHeight = 304;
-        _carInfoHeight = 948;
+        _carImgHeight = 390; // 304
+        _carInfoHeight = 1200; // 948
         _carInfoPaddingY = 16;
         _carInfoTextSize = 32;
         _carInfoIconSize = 24;
@@ -108,9 +108,9 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
         _posterWidth = 1080;
         _posterHeight = 1080;
         _posterPaddingTop = 4;
-        _logoHeight = 100;
+        _logoHeight = 50;
         _logoAyaSizedBoxHeight = 12;
-        _ayaWidth = 350;
+        _ayaWidth = 250;
         _ayaSizedBoxHeight = 12;
         _carImgWidth = 300;
         _carImgHeight = 182;
@@ -420,10 +420,7 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(12),
-          bottomLeft: Radius.circular(12),
-        ),
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
       ),
       width: 420,
       padding: EdgeInsets.only(

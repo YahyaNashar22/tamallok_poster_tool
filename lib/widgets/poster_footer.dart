@@ -7,49 +7,43 @@ class PosterFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(top: 72),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              Image.asset(
-                "assets/phone.png",
-                width: 32,
-                height: 32,
-                fit: BoxFit.cover,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                poster['phone_number'] ?? '',
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "سيارة كوم بالتعاون\nمع بيت التملك",
-            style: TextStyle(
-              fontSize: 28,
-              color: Colors.black,
-              fontFamily: 'Monda',
-              fontWeight: FontWeight.bold,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Image.asset(
+              "assets/phone.png",
+              width: 32,
+              height: 32,
+              fit: BoxFit.cover,
             ),
-            textAlign: TextAlign.right,
+            const SizedBox(width: 6),
+            Text(
+              poster['phone_number'] ?? '',
+              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          "سيارة كوم بالتعاون\nمع بيت التملك",
+          style: TextStyle(
+            fontSize: 28,
+            color: Colors.black,
+            fontFamily: 'Monda',
+            fontWeight: FontWeight.bold,
           ),
-          const SizedBox(height: 12),
-          Text(
-            "#${poster['id'].toString()}",
-            style: TextStyle(fontStyle: FontStyle.italic, fontSize: 16),
-            textAlign: TextAlign.end,
-          ),
-        ],
-      ),
+          textAlign: TextAlign.right,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          "#${poster['id'].toString()}",
+          style: TextStyle(fontStyle: FontStyle.italic, fontSize: 16),
+          textAlign: TextAlign.end,
+        ),
+      ],
     );
   }
 }

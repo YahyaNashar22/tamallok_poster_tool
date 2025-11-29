@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class PosterFooter extends StatelessWidget {
   const PosterFooter({super.key, required this.poster});
@@ -35,9 +34,10 @@ class PosterFooter extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             "سيارة كوم بالتعاون\nمع بيت التملك",
-            style: GoogleFonts.amiri(
+            style: TextStyle(
               fontSize: 28,
               color: Colors.black,
+              fontFamily: 'Monda',
               fontWeight: FontWeight.bold,
             ),
             textAlign: TextAlign.right,

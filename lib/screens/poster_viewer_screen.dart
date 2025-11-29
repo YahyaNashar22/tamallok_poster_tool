@@ -4,9 +4,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:poster_tool/widgets/poster_footer.dart';
 import 'package:poster_tool/widgets/poster_notes.dart';
 import 'package:intl/intl.dart';
@@ -23,6 +21,11 @@ class PosterViewerScreen extends StatefulWidget {
 class _PosterViewerScreenState extends State<PosterViewerScreen> {
   final GlobalKey _exportKey = GlobalKey();
   bool _exporting = false;
+
+  String _selectedLogo = 'assets/green_logo.png';
+  bool _logoCentered = true;
+  String _platform = 'meta';
+
   double _posterWidth = 1080;
   double _posterHeight = 1080;
   double _posterPaddingTop = 4;
@@ -64,49 +67,67 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
     return value.toString();
   }
 
-  Future<void> _exportAsImage(String platform) async {
+  void _changeLogo(String logo) {
+    setState(() {
+      _selectedLogo = logo;
+    });
+  }
+
+  void _toggleLogoAlignment() {
+    setState(() {
+      _logoCentered = !_logoCentered;
+    });
+  }
+
+  void _changePlatform(String platform) {
+    // fix styles: make `meta` a square 1:1 and `snap` a long 9:16
+
+    if (platform == 'snap') {
+      setState(() {
+        // Snap layout: vertical 9:16 (typical story/snap size)
+        _platform = 'snap';
+        _posterWidth = 1080;
+        _posterHeight = 1920;
+        _posterPaddingTop = 0;
+        _logoHeight = 124;
+        _logoAyaSizedBoxHeight = 32;
+        _ayaWidth = 400;
+        _ayaSizedBoxHeight = 0;
+        _carImgWidth = 600;
+        _carImgHeight = 304;
+        _carInfoHeight = 948;
+        _carInfoPaddingY = 16;
+        _carInfoTextSize = 32;
+        _carInfoIconSize = 24;
+        notesTextSize = 32;
+      });
+    } else if (platform == 'meta') {
+      setState(() {
+        // Meta layout: square 1:1 (e.g. Instagram/Facebook square post)
+        _platform = 'meta';
+        _posterWidth = 1080;
+        _posterHeight = 1080;
+        _posterPaddingTop = 4;
+        _logoHeight = 100;
+        _logoAyaSizedBoxHeight = 12;
+        _ayaWidth = 350;
+        _ayaSizedBoxHeight = 12;
+        _carImgWidth = 300;
+        _carImgHeight = 182;
+        _carInfoHeight = 576;
+        _carInfoPaddingY = 8;
+        _carInfoTextSize = 24;
+        _carInfoIconSize = 22;
+        notesTextSize = 24;
+      });
+    }
+  }
+
+  Future<void> _exportAsImage() async {
     if (_exporting) return;
     setState(() => _exporting = true);
 
     try {
-      // fix styles: make `meta` a square 1:1 and `snap` a long 9:16
-      if (platform == 'snap') {
-        setState(() {
-          // Snap layout: vertical 9:16 (typical story/snap size)
-          _posterWidth = 1080;
-          _posterHeight = 1920;
-          _posterPaddingTop = 48;
-          _logoHeight = 124;
-          _logoAyaSizedBoxHeight = 32;
-          _ayaWidth = 400;
-          _ayaSizedBoxHeight = 48;
-          _carImgWidth = 600;
-          _carImgHeight = 304;
-          _carInfoHeight = 948;
-          _carInfoPaddingY = 16;
-          _carInfoTextSize = 32;
-          _carInfoIconSize = 24;
-          notesTextSize = 32;
-        });
-      } else if (platform == 'meta') {
-        setState(() {
-          // Meta layout: square 1:1 (e.g. Instagram/Facebook square post)
-          _posterWidth = 1080;
-          _posterHeight = 1080;
-          _posterPaddingTop = 4;
-          _logoHeight = 100;
-          _logoAyaSizedBoxHeight = 12;
-          _ayaWidth = 350;
-          _ayaSizedBoxHeight = 12;
-          _carImgWidth = 540;
-          _carImgHeight = 182;
-          _carInfoHeight = 576;
-          _carInfoPaddingY = 8;
-          _carInfoTextSize = 24;
-          _carInfoIconSize = 22;
-          notesTextSize = 24;
-        });
-      }
       // Wait for the UI to rebuild with the new size
       await Future.delayed(Duration.zero);
       await WidgetsBinding.instance.endOfFrame;
@@ -128,7 +149,7 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
       }
 
       final file = File(
-        '${exportDir.path}/${platform}_poster_${DateTime.now().millisecondsSinceEpoch}.png',
+        '${exportDir.path}/${_platform}_poster_${DateTime.now().millisecondsSinceEpoch}.png',
       );
       await file.writeAsBytes(pngBytes);
 
@@ -174,14 +195,46 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
               : Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.facebook),
-                      onPressed: () => _exportAsImage('meta'),
-                      tooltip: "Save as Meta Image",
+                      icon: Icon(
+                        _logoCentered
+                            ? Icons.align_horizontal_center
+                            : Icons.align_horizontal_left,
+                      ),
+                      onPressed: () => _toggleLogoAlignment(),
+                      tooltip: "Logo Alignment",
                     ),
                     IconButton(
-                      icon: const Icon(Icons.snapchat),
-                      onPressed: () => _exportAsImage('snap'),
-                      tooltip: "Save as Snap Image",
+                      icon: Image.asset(
+                        'assets/green_logo2.png',
+                        height: 48,
+                        width: 48,
+                      ),
+                      onPressed: () => _changeLogo("assets/green_logo2.png"),
+                      tooltip: "Sayara Com",
+                    ),
+                    IconButton(
+                      icon: Image.asset(
+                        'assets/green_logo.png',
+                        height: 48,
+                        width: 48,
+                      ),
+                      onPressed: () => _changeLogo("assets/green_logo.png"),
+                      tooltip: "bayt al tamallok",
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.facebook, color: Colors.blue),
+                      onPressed: () => _changePlatform('meta'),
+                      tooltip: "Meta Image",
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.snapchat, color: Colors.amber),
+                      onPressed: () => _changePlatform('snap'),
+                      tooltip: "Snap Image",
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.download),
+                      onPressed: _exportAsImage,
+                      tooltip: "Generate Image",
                     ),
                   ],
                 ),
@@ -212,30 +265,33 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                   Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Image.asset('assets/green_logo.png', height: _logoHeight),
+                      Align(
+                        alignment: _logoCentered
+                            ? Alignment.center
+                            : Alignment.centerLeft,
+                        child: Image.asset(_selectedLogo, height: _logoHeight),
+                      ),
                       SizedBox(height: _logoAyaSizedBoxHeight),
-                      // Text(
-                      //   "وَأَنْ تَصَدَّقُوا خَيْرٌ لَكُمْ إِنْ كُنْتُمْ تَعْلَمُونَ",
-                      //   style: GoogleFonts.amiri(
-                      //     fontSize: 48,
-                      //     color: Colors.black87,
-                      //   ),
-                      //   textAlign: TextAlign.center,
-                      // ),
                       Image.asset("assets/aya.png", width: _ayaWidth),
                       SizedBox(height: _ayaSizedBoxHeight),
                     ],
                   ),
 
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       // Images
                       if (images.isNotEmpty)
                         Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          mainAxisAlignment: MainAxisAlignment.center,
+
                           children: images
                               .map(
                                 (e) => Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+
                                   children: [
                                     Image.file(
                                       File(e),
@@ -390,17 +446,22 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                     textAlign: TextAlign.right,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: _carInfoTextSize, color: color),
+                    style: TextStyle(
+                      fontSize: _carInfoTextSize,
+                      color: color,
+                      fontFamily: 'Monda',
+                    ),
                   ),
                 ),
 
                 Text(
-                  " :$label",
+                  " \t:$label",
                   textAlign: TextAlign.right,
                   style: TextStyle(
                     fontSize: _carInfoIconSize,
+                    fontFamily: 'Monda',
                     color: color,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class PosterNotes extends StatelessWidget {
   const PosterNotes({
@@ -32,10 +31,11 @@ class PosterNotes extends StatelessWidget {
               children: [
                 Text(
                   "ملاحظات",
-                  style: GoogleFonts.notoKufiArabic(
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: notesTextSize,
-                    fontWeight: FontWeight.w900,
+                    fontFamily: 'Monda',
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 SizedBox(width: 16),
@@ -58,10 +58,7 @@ class PosterNotes extends StatelessWidget {
                   (note) => Text(
                     note,
                     textAlign: TextAlign.right,
-                    style: GoogleFonts.notoKufiArabic(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 28, fontFamily: 'Monda'),
                   ),
                 ),
               ],

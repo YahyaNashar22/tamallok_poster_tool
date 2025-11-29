@@ -31,16 +31,6 @@ class _HomeScreenState extends State<HomeScreen> {
   final ImagePicker _picker = ImagePicker();
   final _cropController = CropController();
 
-  // Future<void> _pickImage(int index) async {
-  //   final XFile? picked = await _picker.pickImage(source: ImageSource.gallery);
-  //   if (picked == null) return;
-
-  //   final savedFile = await _saveImageToUploadFolder(picked);
-  //   setState(() {
-  //     _images[index] = savedFile;
-  //   });
-  // }
-
   Future<void> _pickImage(int index) async {
     final XFile? picked = await _picker.pickImage(source: ImageSource.gallery);
     if (picked == null) return;

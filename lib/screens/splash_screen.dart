@@ -41,20 +41,28 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.blueGrey.shade900,
+      backgroundColor: Colors.white,
       body: Center(
         child: FadeTransition(
           opacity: _fade,
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: const [
-              Icon(Icons.image, size: 100, color: Colors.white),
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  Image.asset('assets/bayt.png', width: 200),
+                  Icon(Icons.cancel_outlined, size: 100),
+                  Image.asset("assets/sayra.png", width: 200),
+                ],
+              ),
               SizedBox(height: 20),
               Text(
                 'Poster Tool',
                 style: TextStyle(
                   fontSize: 28,
-                  color: Colors.white,
+                  color: Colors.black,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.2,
                 ),

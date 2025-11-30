@@ -9,6 +9,10 @@ import 'package:poster_tool/widgets/custom_icon_btn.dart';
 import 'package:poster_tool/widgets/poster_footer.dart';
 import 'package:poster_tool/widgets/poster_notes.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:crop_your_image/crop_your_image.dart';
+import 'package:path/path.dart' as p;
+import 'package:poster_tool/data/poster_db_service.dart';
 
 class PosterViewerScreen extends StatefulWidget {
   final Map<String, dynamic> poster;
@@ -26,6 +30,9 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
   String _selectedLogo = 'assets/green_logo.png';
   bool _logoCentered = true;
   String _platform = 'meta';
+
+  final ImagePicker _picker = ImagePicker();
+  final _cropController = CropController();
 
   double _posterWidth = 1080;
   double _posterHeight = 1080;
@@ -144,6 +151,136 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
     }
   }
 
+  Future<void> _editImage(int index) async {
+    final XFile? picked = await _picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+
+    final Uint8List inputData = await picked.readAsBytes();
+
+    // show crop dialog
+    final File? croppedFile = await showDialog<File?>(
+      context: context,
+      builder: (context) {
+        final navigator = Navigator.of(context);
+        bool closed = false;
+
+        return Dialog(
+          child: SizedBox(
+            width: 700,
+            height: 700,
+            child: Column(
+              children: [
+                Expanded(
+                  child: Crop(
+                    controller: _cropController,
+                    image: inputData,
+                    onCropped: (result) async {
+                      if (closed) return;
+
+                      if (result is CropSuccess) {
+                        closed = true;
+                        final Uint8List croppedBytes = result.croppedImage;
+                        final dir = await getApplicationDocumentsDirectory();
+                        final uploadDir = Directory(
+                          p.join(dir.path, 'poster_tool_upload'),
+                        );
+                        if (!await uploadDir.exists()) {
+                          await uploadDir.create(recursive: true);
+                        }
+                        final outPath = p.join(
+                          uploadDir.path,
+                          '${DateTime.now().millisecondsSinceEpoch}_${p.basename(picked.path)}_${widget.poster['web_id']}',
+                        );
+                        final outFile = File(outPath);
+                        await outFile.writeAsBytes(croppedBytes);
+                        navigator.pop(outFile);
+                        return;
+                      }
+
+                      if (result is CropFailure) {
+                        if (!closed) {
+                          closed = true;
+                          navigator.pop(null);
+                        }
+                        return;
+                      }
+
+                      if (!closed) {
+                        closed = true;
+                        navigator.pop(null);
+                      }
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 8,
+                    horizontal: 12,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () {
+                          _cropController.crop();
+                        },
+                        child: const Text('Crop & Save'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          if (!closed) {
+                            closed = true;
+                            navigator.pop(null);
+                          }
+                        },
+                        child: const Text('Cancel'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (croppedFile == null) return;
+
+    // Update the poster data and save to database
+    try {
+      // Update widget.poster with new image path
+      if (index == 0) {
+        widget.poster['image1'] = croppedFile.path;
+      } else if (index == 1) {
+        widget.poster['image2'] = croppedFile.path;
+      } else if (index == 2) {
+        widget.poster['image3'] = croppedFile.path;
+      }
+
+      // Save to database
+      await PosterDbService.instance.updatePosterById(
+        widget.poster['id'],
+        image1: index == 0 ? croppedFile.path : null,
+        image2: index == 1 ? croppedFile.path : null,
+        image3: index == 2 ? croppedFile.path : null,
+      );
+
+      if (!mounted) return;
+
+      setState(() {});
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ Image updated successfully')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('❌ Failed to update image: $e')));
+    }
+  }
+
   Future<void> _exportAsImage() async {
     if (_exporting) return;
     setState(() => _exporting = true);
@@ -247,7 +384,7 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                     CustomIconBtn(
                       text: 'SA',
                       color: Colors.amber,
-                      toolTip: "Saudi Snap",
+                      toolTip: "Jordan Meta",
                       onPressed: _saudiSnap,
                     ),
                     const SizedBox(width: 24),
@@ -306,15 +443,19 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           mainAxisAlignment: MainAxisAlignment.center,
 
-                          children: images
-                              .map(
-                                (e) => Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-
-                                  children: [
-                                    Image.file(
-                                      File(e),
+                          children: images.asMap().entries.map((entry) {
+                            final imageIndex = entry.key;
+                            final imagePath = entry.value;
+                            return Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                GestureDetector(
+                                  onTap: () => _editImage(imageIndex),
+                                  child: MouseRegion(
+                                    cursor: SystemMouseCursors.click,
+                                    child: Image.file(
+                                      File(imagePath),
                                       width: _carImgWidth,
                                       height: _carImgHeight,
                                       fit: BoxFit.cover,
@@ -333,11 +474,12 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                                             );
                                           },
                                     ),
-                                    const SizedBox(height: 12),
-                                  ],
+                                  ),
                                 ),
-                              )
-                              .toList(),
+                                const SizedBox(height: 12),
+                              ],
+                            );
+                          }).toList(),
                         ),
 
                       // Details

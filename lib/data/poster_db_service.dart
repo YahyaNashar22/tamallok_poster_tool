@@ -18,6 +18,7 @@ class PosterDbService {
     String? location,
     List<String>? notes,
     String? phoneNumber,
+    required String webId,
   }) async {
     final db = await DatabaseHelper.instance.database;
 
@@ -33,6 +34,7 @@ class PosterDbService {
       'location': location,
       'notes': notes != null ? jsonEncode(notes) : null,
       'phone_number': phoneNumber,
+      'web_id': webId,
     };
 
     return await db.insert('poster', data);
@@ -105,5 +107,11 @@ class PosterDbService {
     if (phoneNumber != null) data['phone_number'] = phoneNumber;
 
     return await db.update('poster', data, where: 'id = ?', whereArgs: [id]);
+  }
+
+  // Delete poster by ID
+  Future<int> deletePosterById(int id) async {
+    final db = await DatabaseHelper.instance.database;
+    return await db.delete('poster', where: 'id = ?', whereArgs: [id]);
   }
 }

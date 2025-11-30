@@ -49,6 +49,7 @@ CREATE TABLE user(
     await db.execute('''
 CREATE TABLE poster(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  web_id INTEGER UNIQUE,
   image1 TEXT,
   image2 TEXT,
   image3 TEXT,

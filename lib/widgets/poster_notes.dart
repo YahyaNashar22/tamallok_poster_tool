@@ -13,7 +13,7 @@ class PosterNotes extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 10, right: 0, top: 0, bottom: 124),
+      padding: const EdgeInsets.only(left: 10, right: 0, top: 0, bottom: 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -28,6 +28,7 @@ class PosterNotes extends StatelessWidget {
               ),
             ),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 Text(
                   "ملاحظات",

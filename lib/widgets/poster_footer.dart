@@ -39,7 +39,7 @@ class PosterFooter extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          "#${poster['id'].toString()}",
+          "#${poster['web_id'].toString()}",
           style: TextStyle(fontStyle: FontStyle.italic, fontSize: 16),
           textAlign: TextAlign.end,
         ),

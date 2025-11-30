@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:poster_tool/widgets/custom_icon_btn.dart';
 import 'package:poster_tool/widgets/poster_footer.dart';
 import 'package:poster_tool/widgets/poster_notes.dart';
 import 'package:intl/intl.dart';
@@ -30,8 +31,8 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
   double _posterHeight = 1080;
   double _posterPaddingTop = 4;
   double _logoHeight = 50;
-  double _logoAyaSizedBoxHeight = 12;
-  double _ayaWidth = 350;
+  double _logoAyaSizedBoxHeight = 24;
+  double _ayaWidth = 250;
   double _ayaSizedBoxHeight = 12;
   double _carImgWidth = 540;
   double _carImgHeight = 182;
@@ -79,6 +80,26 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
     });
   }
 
+  void _jordanMeta() {
+    _changePlatform('meta');
+    _changeLogo("assets/green_logo2.png");
+  }
+
+  void _jordanSnap() {
+    _changePlatform('snap');
+    _changeLogo("assets/green_logo2.png");
+  }
+
+  void _saudiMeta() {
+    _changePlatform('meta');
+    _changeLogo("assets/green_logo.png");
+  }
+
+  void _saudiSnap() {
+    _changePlatform('snap');
+    _changeLogo("assets/green_logo.png");
+  }
+
   void _changePlatform(String platform) {
     // fix styles: make `meta` a square 1:1 and `snap` a long 9:16
 
@@ -94,12 +115,12 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
         _ayaWidth = 250;
         _ayaSizedBoxHeight = 0;
         _carImgWidth = 600;
-        _carImgHeight = 390; // 304
-        _carInfoHeight = 1200; // 948
+        _carImgHeight = 390;
+        _carInfoHeight = 1180;
         _carInfoPaddingY = 16;
-        _carInfoTextSize = 32;
+        _carInfoTextSize = 26;
         _carInfoIconSize = 24;
-        notesTextSize = 32;
+        notesTextSize = 28;
       });
     } else if (platform == 'meta') {
       setState(() {
@@ -109,12 +130,12 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
         _posterHeight = 1080;
         _posterPaddingTop = 4;
         _logoHeight = 50;
-        _logoAyaSizedBoxHeight = 12;
+        _logoAyaSizedBoxHeight = 24;
         _ayaWidth = 250;
         _ayaSizedBoxHeight = 12;
         _carImgWidth = 300;
-        _carImgHeight = 182;
-        _carInfoHeight = 576;
+        _carImgHeight = 200;
+        _carInfoHeight = 600;
         _carInfoPaddingY = 8;
         _carInfoTextSize = 24;
         _carInfoIconSize = 22;
@@ -203,34 +224,33 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                       onPressed: () => _toggleLogoAlignment(),
                       tooltip: "Logo Alignment",
                     ),
-                    IconButton(
-                      icon: Image.asset(
-                        'assets/green_logo2.png',
-                        height: 48,
-                        width: 48,
-                      ),
-                      onPressed: () => _changeLogo("assets/green_logo2.png"),
-                      tooltip: "Sayara Com",
+                    const SizedBox(width: 24),
+                    CustomIconBtn(
+                      text: 'JO',
+                      color: Colors.blue,
+                      toolTip: "Jordan Meta",
+                      onPressed: _jordanMeta,
                     ),
-                    IconButton(
-                      icon: Image.asset(
-                        'assets/green_logo.png',
-                        height: 48,
-                        width: 48,
-                      ),
-                      onPressed: () => _changeLogo("assets/green_logo.png"),
-                      tooltip: "bayt al tamallok",
+                    CustomIconBtn(
+                      text: 'JO',
+                      color: Colors.amber,
+                      toolTip: "Jordan Snap",
+                      onPressed: _jordanSnap,
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.facebook, color: Colors.blue),
-                      onPressed: () => _changePlatform('meta'),
-                      tooltip: "Meta Image",
+                    const SizedBox(width: 24),
+                    CustomIconBtn(
+                      text: 'SA',
+                      color: Colors.blue,
+                      toolTip: "Saudi Meta",
+                      onPressed: _saudiMeta,
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.snapchat, color: Colors.amber),
-                      onPressed: () => _changePlatform('snap'),
-                      tooltip: "Snap Image",
+                    CustomIconBtn(
+                      text: 'SA',
+                      color: Colors.amber,
+                      toolTip: "Saudi Snap",
+                      onPressed: _saudiSnap,
                     ),
+                    const SizedBox(width: 24),
                     IconButton(
                       icon: const Icon(Icons.download),
                       onPressed: _exportAsImage,
@@ -359,8 +379,8 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                               color: Colors.red,
                             ),
                             _info(
-                              "المسافة\n المقطوعة",
-                              "${_formatValue(poster['distance_traveled'])} كم",
+                              "المسافة المقطوعة",
+                              "${_formatValue(poster['distance_traveled'])} ",
                               Image.asset(
                                 "assets/speed.png",
                                 width: 32,
@@ -397,6 +417,7 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                   // Footer
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       PosterFooter(poster: poster),
                       PosterNotes(notes: notes, notesTextSize: notesTextSize),
@@ -441,7 +462,7 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                   child: Text(
                     "$value ",
                     textAlign: TextAlign.right,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: _carInfoTextSize,
@@ -452,8 +473,10 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                 ),
 
                 Text(
-                  " \t:$label",
+                  " : $label",
                   textAlign: TextAlign.right,
+                  maxLines: 1,
+                  overflow: TextOverflow.visible,
                   style: TextStyle(
                     fontSize: _carInfoIconSize,
                     fontFamily: 'Monda',

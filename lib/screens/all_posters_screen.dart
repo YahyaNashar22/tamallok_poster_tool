@@ -54,12 +54,13 @@ class _AllPostersScreenState extends State<AllPostersScreen> {
         _filteredPosters = _allPosters.where((poster) {
           final type = poster['type']?.toLowerCase() ?? '';
           final model = poster['model']?.toLowerCase() ?? '';
-          final id = poster['id']?.toString().toLowerCase() ?? ''; // Check ID
+          final webId =
+              poster['web_id']?.toString().toLowerCase() ?? ''; // Check ID
 
           // Search by type, model, or ID
           return type.contains(query) ||
               model.contains(query) ||
-              id.contains(query);
+              webId.contains(query);
         }).toList();
       }
     });
@@ -140,16 +141,71 @@ class _AllPostersScreenState extends State<AllPostersScreen> {
                               fit: BoxFit.cover,
                             )
                           : const Icon(Icons.image_not_supported, size: 40),
-                      title: Text('${poster['type']} - ${poster['model']}'),
+                      title: Text(
+                        '${poster['type']} - ${poster['model']} - ${poster['web_id']}',
+                      ),
                       subtitle: Text(
                         'Price: ${poster['price'] ?? '-'} | Distance: ${poster['distance_traveled'] ?? '-'}',
                       ),
-                      trailing: Text(poster['phone_number'] ?? ''),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(poster['phone_number'] ?? ''),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            tooltip: 'Delete poster',
+                            onPressed: () => _confirmDelete(poster),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );
               },
             ),
     );
+  }
+
+  Future<void> _confirmDelete(Map<String, dynamic> poster) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Poster'),
+        content: Text(
+          'Are you sure you want to delete "${poster['type']} - ${poster['model']}"?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true) return;
+
+    try {
+      final id = poster['id'];
+      if (id == null) return;
+
+      await PosterDbService.instance.deletePosterById(id as int);
+      await _loadPosters();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Poster deleted')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to delete poster')));
+    }
   }
 }

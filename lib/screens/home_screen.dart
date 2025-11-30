@@ -26,14 +26,22 @@ class _HomeScreenState extends State<HomeScreen> {
   final _locationController = TextEditingController();
   final _notesController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _webIdController = TextEditingController();
 
   final List<File?> _images = [null, null, null];
   final ImagePicker _picker = ImagePicker();
   final _cropController = CropController();
 
+  bool _isPickingImage = false;
+
   Future<void> _pickImage(int index) async {
+    setState(() => _isPickingImage = true);
     final XFile? picked = await _picker.pickImage(source: ImageSource.gallery);
-    if (picked == null) return;
+    if (picked == null) {
+      if (!mounted) return;
+      setState(() => _isPickingImage = false);
+      return;
+    }
 
     final Uint8List inputData = await picked.readAsBytes();
 
@@ -41,6 +49,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final File? croppedFile = await showDialog<File?>(
       context: context,
       builder: (context) {
+        final navigator = Navigator.of(context);
+        // Local flag to ensure we only pop the dialog once even if crop() is
+        // triggered multiple times (prevents double-pop crashes).
+        bool closed = false;
+
         return Dialog(
           child: SizedBox(
             width: 700,
@@ -52,10 +65,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     controller: _cropController,
                     image: inputData,
                     onCropped: (result) async {
+                      if (closed) return;
+
                       if (result is CropSuccess) {
+                        closed = true;
                         final Uint8List croppedBytes = result.croppedImage;
                         final dir = await getApplicationDocumentsDirectory();
-                        final uploadDir = Directory(p.join(dir.path, 'upload'));
+                        final uploadDir = Directory(
+                          p.join(dir.path, 'poster_tool_upload'),
+                        );
                         if (!await uploadDir.exists()) {
                           await uploadDir.create(recursive: true);
                         }
@@ -65,18 +83,23 @@ class _HomeScreenState extends State<HomeScreen> {
                         );
                         final outFile = File(outPath);
                         await outFile.writeAsBytes(croppedBytes);
-                        Navigator.of(context).pop(outFile);
+                        navigator.pop(outFile);
                         return;
                       }
 
                       // handle failure
                       if (result is CropFailure) {
-                        // optional: show error
-                        Navigator.of(context).pop(null);
+                        if (!closed) {
+                          closed = true;
+                          navigator.pop(null);
+                        }
                         return;
                       }
 
-                      Navigator.of(context).pop(null);
+                      if (!closed) {
+                        closed = true;
+                        navigator.pop(null);
+                      }
                     },
                   ),
                 ),
@@ -98,7 +121,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: const Text('Crop & Save'),
                       ),
                       ElevatedButton(
-                        onPressed: () => Navigator.of(context).pop(null),
+                        onPressed: () {
+                          if (!closed) {
+                            closed = true;
+                            navigator.pop(null);
+                          }
+                        },
                         child: const Text('Cancel'),
                       ),
                     ],
@@ -111,30 +139,17 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
 
-    if (croppedFile != null) {
-      setState(() => _images[index] = croppedFile);
-    }
+    if (!mounted) return;
+
+    setState(() {
+      _isPickingImage = false;
+      if (croppedFile != null) _images[index] = croppedFile;
+    });
   }
 
-  Future<File> _saveImageToUploadFolder(XFile image) async {
-    // Get app's directory (e.g., C:\Users\User\AppData\Local\YourApp)
-    final Directory appDir = await getApplicationDocumentsDirectory();
-    final uploadDir = Directory(p.join(appDir.path, 'upload'));
+  // removed unused _saveImageToUploadFolder to avoid analyzer warnings
 
-    if (!await uploadDir.exists()) {
-      await uploadDir.create(recursive: true);
-    }
-
-    final String newPath = p.join(
-      uploadDir.path,
-      '${DateTime.now().millisecondsSinceEpoch}_${p.basename(image.path)}',
-    );
-
-    final File savedImage = await File(image.path).copy(newPath);
-    return savedImage;
-  }
-
-  void _submit() async {
+  Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
       // Save to database here, e.g.:
       await PosterDbService.instance.insertPoster(
@@ -153,7 +168,10 @@ class _HomeScreenState extends State<HomeScreen> {
             .where((e) => e.isNotEmpty)
             .toList(),
         phoneNumber: _phoneController.text,
+        webId: _webIdController.text,
       );
+
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Poster saved successfully')),
@@ -207,7 +225,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: List.generate(3, _buildImagePicker),
+                  children: _isPickingImage
+                      ? [
+                          CircularProgressIndicator(),
+                          CircularProgressIndicator(),
+                          CircularProgressIndicator(),
+                        ]
+                      : List.generate(3, _buildImagePicker),
                 ),
                 const SizedBox(height: 20),
                 _buildTextField(_typeController, 'Type', required: true),
@@ -233,6 +257,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   _phoneController,
                   'Phone Number',
                   keyboard: TextInputType.phone,
+                ),
+                _buildTextField(
+                  _webIdController,
+                  'ID',
+                  keyboard: TextInputType.text,
                 ),
                 const SizedBox(height: 25),
                 ElevatedButton.icon(
@@ -295,6 +324,39 @@ class _HomeScreenState extends State<HomeScreen> {
     final fileBytes = File(result.files.single.path!).readAsBytesSync();
     final excel = Excel.decodeBytes(fileBytes);
 
+    // prepare upload directory once
+    final appDir = await getApplicationDocumentsDirectory();
+    final uploadDir = Directory(p.join(appDir.path, 'poster_tool_upload'));
+    if (!await uploadDir.exists()) {
+      await uploadDir.create(recursive: true);
+    }
+
+    // helper: ensure a referenced image is copied into uploadDir
+    Future<String?> _ensureImageInUpload(String? imagePath) async {
+      if (imagePath == null) return null;
+      final String trimmed = imagePath.trim();
+      if (trimmed.isEmpty) return null;
+
+      // If it's a remote URL, leave it as-is
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        return trimmed;
+      }
+
+      final File f = File(trimmed);
+      if (!await f.exists()) {
+        // If the file doesn't exist, return the original path so the importer
+        // can decide what to do (or keep it empty)
+        return trimmed;
+      }
+
+      final String outPath = p.join(
+        uploadDir.path,
+        '${DateTime.now().millisecondsSinceEpoch}_${p.basename(trimmed)}',
+      );
+      final File outFile = await f.copy(outPath);
+      return outFile.path;
+    }
+
     int inserted = 0;
     for (var table in excel.tables.keys) {
       final rows = excel.tables[table]!.rows;
@@ -303,10 +365,25 @@ class _HomeScreenState extends State<HomeScreen> {
       for (int i = 1; i < rows.length; i++) {
         final row = rows[i];
         try {
+          // copy images into upload folder (if local files)
+          final String? rawImage1 = row.length > 0
+              ? row[0]?.value?.toString()
+              : null;
+          final String? rawImage2 = row.length > 1
+              ? row[1]?.value?.toString()
+              : null;
+          final String? rawImage3 = row.length > 2
+              ? row[2]?.value?.toString()
+              : null;
+
+          final String? image1 = await _ensureImageInUpload(rawImage1);
+          final String? image2 = await _ensureImageInUpload(rawImage2);
+          final String? image3 = await _ensureImageInUpload(rawImage3);
+
           await PosterDbService.instance.insertPoster(
-            image1: row.length > 0 ? row[0]?.value?.toString() : null,
-            image2: row.length > 1 ? row[1]?.value?.toString() : null,
-            image3: row.length > 2 ? row[2]?.value?.toString() : null,
+            image1: image1,
+            image2: image2,
+            image3: image3,
             type: row.length > 3 ? row[3]?.value?.toString() ?? '' : '',
             model: row.length > 4 ? row[4]?.value?.toString() ?? '' : '',
             price: double.tryParse(
@@ -318,17 +395,20 @@ class _HomeScreenState extends State<HomeScreen> {
             engineSize: row.length > 7 ? row[7]?.value?.toString() : '',
             location: row.length > 8 ? row[8]?.value?.toString() : '',
             notes: row.length > 9
-                ? (row[9]?.value
-                          ?.toString()
-                          ?.split(',')
-                          .map((e) => e.trim())
-                          .toList() ??
-                      [])
+                ? (row[9]?.value != null
+                      ? row[9]!.value
+                            .toString()
+                            .split(',')
+                            .map((e) => e.trim())
+                            .toList()
+                      : [])
                 : [],
             phoneNumber: row.length > 10
                 ? row[10]?.value?.toString() ?? ''
                 : '',
+            webId: row.length > 11 ? row[11]?.value?.toString() ?? '' : '',
           );
+
           inserted++;
         } catch (e) {
           // skip invalid rows silently
@@ -336,6 +416,8 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
     }
+
+    if (!mounted) return;
 
     ScaffoldMessenger.of(
       context,

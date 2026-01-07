@@ -20,6 +20,11 @@ class TamellakPosterTool extends StatelessWidget {
       title: 'Tamellak Poster Tool',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        scrollbarTheme: ScrollbarThemeData(
+          thumbVisibility: WidgetStatePropertyAll(true),
+          thumbColor: WidgetStateProperty.all<Color>(Colors.blueGrey),
+          crossAxisMargin: -12,
+        ),
       ),
       initialRoute: AppRoutes.splash,
       onGenerateRoute: AppRoutes.generateRoute,

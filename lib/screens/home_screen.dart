@@ -31,8 +31,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<File?> _images = [null, null, null];
   final ImagePicker _picker = ImagePicker();
   final _cropController = CropController();
-
   bool _isPickingImage = false;
+
+  final ScrollController _scrollController = ScrollController();
 
   Future<void> _pickImage(int index) async {
     setState(() => _isPickingImage = true);
@@ -147,8 +148,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // removed unused _saveImageToUploadFolder to avoid analyzer warnings
-
   Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
       // Save to database here, e.g.:
@@ -204,6 +203,12 @@ class _HomeScreenState extends State<HomeScreen> {
             : null,
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -411,7 +416,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
           inserted++;
         } catch (e) {
-          // skip invalid rows silently
+          if (!mounted) return;
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('problem importing: $e')));
           continue;
         }
       }

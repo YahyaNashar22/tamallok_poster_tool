@@ -21,7 +21,7 @@ class PosterNotes extends StatelessWidget {
             width: 240,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.green.shade700,
+              color: Color(0XFF17652f),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
                 bottomLeft: Radius.circular(12),
@@ -35,7 +35,7 @@ class PosterNotes extends StatelessWidget {
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: notesTextSize,
-                    fontFamily: 'Monda',
+                    fontFamily: 'GE_SS_Medium',
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -59,7 +59,7 @@ class PosterNotes extends StatelessWidget {
                   (note) => Text(
                     note,
                     textAlign: TextAlign.right,
-                    style: TextStyle(fontSize: 28, fontFamily: 'Monda'),
+                    style: TextStyle(fontSize: 28, fontFamily: 'GE_SS'),
                   ),
                 ),
               ],

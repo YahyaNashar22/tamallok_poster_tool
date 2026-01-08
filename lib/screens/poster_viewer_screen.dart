@@ -37,9 +37,9 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
   double _posterWidth = 1080;
   double _posterHeight = 1080;
   double _posterPaddingTop = 4;
-  double _logoHeight = 50;
+  double _logoWidth = 258;
   double _logoAyaSizedBoxHeight = 24;
-  double _ayaWidth = 250;
+  double _ayaWidth = 416;
   double _ayaSizedBoxHeight = 12;
   double _carImgWidth = 540;
   double _carImgHeight = 182;
@@ -48,6 +48,47 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
   double _carInfoTextSize = 24;
   double _carInfoIconSize = 22;
   double notesTextSize = 24;
+
+  void _changePlatform(String platform) {
+    if (platform == 'snap') {
+      setState(() {
+        _platform = 'snap';
+        _posterWidth = 1080;
+        _posterHeight = 1920;
+        _posterPaddingTop = 0;
+        _logoWidth = 318;
+        _logoAyaSizedBoxHeight = 32;
+        _ayaWidth = 534;
+        _ayaSizedBoxHeight = 0;
+        _carImgWidth = 600;
+        _carImgHeight = 390;
+        _carInfoHeight = 1180;
+        _carInfoPaddingY = 16;
+        _carInfoTextSize = 26;
+        _carInfoIconSize = 24;
+        notesTextSize = 28;
+      });
+    } else if (platform == 'meta') {
+      setState(() {
+        // Meta layout: square 1:1 (e.g. Instagram/Facebook square post)
+        _platform = 'meta';
+        _posterWidth = 1080;
+        _posterHeight = 1350;
+        _posterPaddingTop = 4;
+        _logoWidth = 258;
+        _logoAyaSizedBoxHeight = 24;
+        _ayaWidth = 416;
+        _ayaSizedBoxHeight = 12;
+        _carImgWidth = 300;
+        _carImgHeight = 200;
+        _carInfoHeight = 600;
+        _carInfoPaddingY = 8;
+        _carInfoTextSize = 24;
+        _carInfoIconSize = 22;
+        notesTextSize = 24;
+      });
+    }
+  }
 
   String _formatValue(dynamic value) {
     if (value == null) return '';
@@ -89,66 +130,22 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
 
   void _jordanMeta() {
     _changePlatform('meta');
-    _changeLogo("assets/green_logo2.png");
+    _changeLogo("assets/green_logo.png");
   }
 
   void _jordanSnap() {
     _changePlatform('snap');
-    _changeLogo("assets/green_logo2.png");
+    _changeLogo("assets/green_logo.png");
   }
 
   void _saudiMeta() {
     _changePlatform('meta');
-    _changeLogo("assets/green_logo.png");
+    _changeLogo("assets/sayaracom.png");
   }
 
   void _saudiSnap() {
     _changePlatform('snap');
-    _changeLogo("assets/green_logo.png");
-  }
-
-  void _changePlatform(String platform) {
-    // fix styles: make `meta` a square 1:1 and `snap` a long 9:16
-
-    if (platform == 'snap') {
-      setState(() {
-        // Snap layout: vertical 9:16 (typical story/snap size)
-        _platform = 'snap';
-        _posterWidth = 1080;
-        _posterHeight = 1920;
-        _posterPaddingTop = 0;
-        _logoHeight = 75;
-        _logoAyaSizedBoxHeight = 32;
-        _ayaWidth = 250;
-        _ayaSizedBoxHeight = 0;
-        _carImgWidth = 600;
-        _carImgHeight = 390;
-        _carInfoHeight = 1180;
-        _carInfoPaddingY = 16;
-        _carInfoTextSize = 26;
-        _carInfoIconSize = 24;
-        notesTextSize = 28;
-      });
-    } else if (platform == 'meta') {
-      setState(() {
-        // Meta layout: square 1:1 (e.g. Instagram/Facebook square post)
-        _platform = 'meta';
-        _posterWidth = 1080;
-        _posterHeight = 1080;
-        _posterPaddingTop = 4;
-        _logoHeight = 50;
-        _logoAyaSizedBoxHeight = 24;
-        _ayaWidth = 250;
-        _ayaSizedBoxHeight = 12;
-        _carImgWidth = 300;
-        _carImgHeight = 200;
-        _carInfoHeight = 600;
-        _carInfoPaddingY = 8;
-        _carInfoTextSize = 24;
-        _carInfoIconSize = 22;
-        notesTextSize = 24;
-      });
-    }
+    _changeLogo("assets/sayaracom.png");
   }
 
   Future<void> _editImage(int index) async {
@@ -293,7 +290,7 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
       RenderRepaintBoundary boundary =
           _exportKey.currentContext!.findRenderObject()
               as RenderRepaintBoundary;
-      ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+      ui.Image image = await boundary.toImage(pixelRatio: 1.0);
 
       ByteData? byteData = await image.toByteData(
         format: ui.ImageByteFormat.png,
@@ -426,7 +423,7 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                         alignment: _logoCentered
                             ? Alignment.center
                             : Alignment.centerLeft,
-                        child: Image.asset(_selectedLogo, height: _logoHeight),
+                        child: Image.asset(_selectedLogo, width: _logoWidth),
                       ),
                       SizedBox(height: _logoAyaSizedBoxHeight),
                       Image.asset("assets/aya.png", width: _ayaWidth),
@@ -561,7 +558,11 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      PosterFooter(poster: poster),
+                      PosterFooter(
+                        poster: poster,
+                        fontSize: _carInfoIconSize,
+                        selectedLogo: _selectedLogo,
+                      ),
                       PosterNotes(notes: notes, notesTextSize: notesTextSize),
                     ],
                   ),
@@ -595,11 +596,11 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          icon,
           Expanded(
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                icon,
                 Flexible(
                   child: Text(
                     "$value ",
@@ -621,7 +622,7 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                   overflow: TextOverflow.visible,
                   style: TextStyle(
                     fontSize: _carInfoIconSize,
-                    fontFamily: 'Monda',
+                    fontFamily: 'GE_SS_Medium',
                     color: color,
                     fontWeight: FontWeight.bold,
                   ),

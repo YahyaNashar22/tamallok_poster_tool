@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 
 class PosterFooter extends StatelessWidget {
-  const PosterFooter({super.key, required this.poster});
+  const PosterFooter({
+    super.key,
+    required this.poster,
+    required this.fontSize,
+    required this.selectedLogo,
+  });
 
   final Map<String, dynamic> poster;
+  final double fontSize;
+  final String selectedLogo;
 
   @override
   Widget build(BuildContext context) {
@@ -27,16 +34,17 @@ class PosterFooter extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        Text(
-          "سيارة كوم بالتعاون\nمع بيت التملك",
-          style: TextStyle(
-            fontSize: 28,
-            color: Colors.black,
-            fontFamily: 'Monda',
-            fontWeight: FontWeight.bold,
+        if (selectedLogo == "assets/sayaracom.png")
+          Text(
+            "سيارة كوم بالتعاون\nمع بيت التملك",
+            style: TextStyle(
+              fontSize: fontSize,
+              color: Colors.black,
+              fontFamily: 'GE_SS_Medium',
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.right,
           ),
-          textAlign: TextAlign.right,
-        ),
         const SizedBox(height: 12),
         Text(
           "#${poster['web_id'].toString()}",

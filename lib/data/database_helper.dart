@@ -3,8 +3,8 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 class DatabaseHelper {
-  static const _dbName = "poster_tool";
-  static const _dbVersion = 1;
+  static const _dbName = 'poster_tool.db';
+  static const _dbVersion = 2;
 
   DatabaseHelper._privateConstructor();
 
@@ -13,7 +13,9 @@ class DatabaseHelper {
   static Database? _database;
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
+    if (_database != null) {
+      return _database!;
+    }
 
     _database = await _initDatabase();
     return _database!;
@@ -23,12 +25,13 @@ class DatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, _dbName);
 
-    debugPrint("📁 Database path: $path");
+    debugPrint('Database path: $path');
 
-    return await openDatabase(
+    return openDatabase(
       path,
       version: _dbVersion,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -36,7 +39,59 @@ class DatabaseHelper {
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    // user table
+    await _createUserTable(db);
+    await _createPosterTable(db);
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.transaction((txn) async {
+        await txn.execute('ALTER TABLE poster RENAME TO poster_old');
+        await _createPosterTable(txn);
+        await txn.execute('''
+INSERT INTO poster (
+  id,
+  web_id,
+  image1,
+  image2,
+  image3,
+  type,
+  model,
+  price,
+  distance_traveled,
+  engine_size,
+  location,
+  notes,
+  phone_number
+)
+SELECT
+  id,
+  CAST(web_id AS TEXT),
+  image1,
+  image2,
+  image3,
+  type,
+  model,
+  CASE
+    WHEN price IS NULL OR TRIM(CAST(price AS TEXT)) = '' THEN NULL
+    ELSE CAST(price AS REAL)
+  END,
+  CASE
+    WHEN distance_traveled IS NULL OR TRIM(CAST(distance_traveled AS TEXT)) = '' THEN NULL
+    ELSE CAST(distance_traveled AS REAL)
+  END,
+  engine_size,
+  location,
+  notes,
+  phone_number
+FROM poster_old
+''');
+        await txn.execute('DROP TABLE poster_old');
+      });
+    }
+  }
+
+  Future<void> _createUserTable(DatabaseExecutor db) async {
     await db.execute('''
 CREATE TABLE user(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,22 +99,23 @@ CREATE TABLE user(
   password TEXT NOT NULL
 )
 ''');
+  }
 
-    // poster table
+  Future<void> _createPosterTable(DatabaseExecutor db) async {
     await db.execute('''
 CREATE TABLE poster(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  web_id INTEGER UNIQUE,
+  web_id TEXT UNIQUE,
   image1 TEXT,
   image2 TEXT,
   image3 TEXT,
   type TEXT NOT NULL,
   model TEXT NOT NULL,
-  price INT,
-  distance_traveled INT,
+  price REAL,
+  distance_traveled REAL,
   engine_size TEXT,
   location TEXT,
-  notes TEXT, -- store as JSON string for string array
+  notes TEXT,
   phone_number TEXT
 )
 ''');

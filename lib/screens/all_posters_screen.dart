@@ -1,5 +1,7 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:poster_tool/data/poster_db_service.dart';
 import 'package:poster_tool/screens/poster_viewer_screen.dart';
 
@@ -11,201 +13,372 @@ class AllPostersScreen extends StatefulWidget {
 }
 
 class _AllPostersScreenState extends State<AllPostersScreen> {
-  // Original list of all posters
   List<Map<String, dynamic>> _allPosters = [];
-  // List shown to the user (filtered list)
   List<Map<String, dynamic>> _filteredPosters = [];
-
   final TextEditingController _searchController = TextEditingController();
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadPosters();
-    // Start listening to changes in the search field
     _searchController.addListener(_filterPosters);
+    _loadPosters();
   }
 
   @override
   void dispose() {
-    // Clean up the controller when the widget is disposed
     _searchController.removeListener(_filterPosters);
     _searchController.dispose();
     super.dispose();
   }
 
   Future<void> _loadPosters() async {
+    setState(() => _loading = true);
     final posters = await PosterDbService.instance.fetchAllPosters();
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _allPosters = posters;
-      _filteredPosters =
-          posters; // Initialize the filtered list with all posters
+      _filteredPosters = _applyQuery(posters, _searchController.text);
+      _loading = false;
     });
   }
 
   void _filterPosters() {
-    final query = _searchController.text.toLowerCase();
     setState(() {
-      if (query.isEmpty) {
-        // If the search query is empty, show all posters
-        _filteredPosters = _allPosters;
-      } else {
-        // Filter the original list based on the query
-        _filteredPosters = _allPosters.where((poster) {
-          final type = poster['type']?.toLowerCase() ?? '';
-          final model = poster['model']?.toLowerCase() ?? '';
-          final webId =
-              poster['web_id']?.toString().toLowerCase() ?? ''; // Check ID
-
-          // Search by type, model, or ID
-          return type.contains(query) ||
-              model.contains(query) ||
-              webId.contains(query);
-        }).toList();
-      }
+      _filteredPosters = _applyQuery(_allPosters, _searchController.text);
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('All Posters'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60.0),
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search by Type, Model, or ID...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          _filterPosters(); // Re-run filter to show all
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(25.0),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 0,
-                  horizontal: 16,
-                ),
-              ),
-              onChanged: (_) => _filterPosters(),
-            ),
-          ),
-        ),
-      ),
-      body: _filteredPosters.isEmpty
-          ? Center(
-              child: Text(
-                _searchController.text.isEmpty
-                    ? 'No posters created yet.'
-                    : 'No results found for "${_searchController.text}"',
-              ),
-            )
-          : ListView.builder(
-              itemCount: _filteredPosters.length,
-              padding: const EdgeInsets.all(12),
-              itemBuilder: (context, i) {
-                final poster = _filteredPosters[i]; // Use filtered list
-                // ... rest of your existing ListTile code ...
-                return InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => PosterViewerScreen(poster: poster),
-                      ),
-                    );
-                  },
-                  child: Card(
-                    elevation: 2,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      leading:
-                          poster['image1'] != null &&
-                              File(poster['image1']).existsSync()
-                          ? Image.file(
-                              File(poster['image1']),
-                              width: 60,
-                              height: 60,
-                              fit: BoxFit.cover,
-                            )
-                          : const Icon(Icons.image_not_supported, size: 40),
-                      title: Text(
-                        '${poster['type']} - ${poster['model']} - ${poster['web_id']}',
-                      ),
-                      subtitle: Text(
-                        'Price: ${poster['price'] ?? '-'} | Distance: ${poster['distance_traveled'] ?? '-'}',
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(poster['phone_number'] ?? ''),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            tooltip: 'Delete poster',
-                            onPressed: () => _confirmDelete(poster),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-    );
+  List<Map<String, dynamic>> _applyQuery(
+    List<Map<String, dynamic>> posters,
+    String query,
+  ) {
+    final normalizedQuery = query.trim().toLowerCase();
+    if (normalizedQuery.isEmpty) {
+      return posters;
+    }
+    return posters.where((poster) {
+      final type = poster['type']?.toString().toLowerCase() ?? '';
+      final model = poster['model']?.toString().toLowerCase() ?? '';
+      final webId = poster['web_id']?.toString().toLowerCase() ?? '';
+      final phone = poster['phone_number']?.toString().toLowerCase() ?? '';
+      return type.contains(normalizedQuery) ||
+          model.contains(normalizedQuery) ||
+          webId.contains(normalizedQuery) ||
+          phone.contains(normalizedQuery);
+    }).toList();
   }
 
   Future<void> _confirmDelete(Map<String, dynamic> poster) async {
     final shouldDelete = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Poster'),
-        content: Text(
-          'Are you sure you want to delete "${poster['type']} - ${poster['model']}"?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete Poster'),
+          content: Text(
+            'Delete "${poster['type']} ${poster['model']}" with ID ${poster['web_id']}?',
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true) {
+      return;
+    }
+
+    try {
+      await PosterDbService.instance.deletePosterById(poster['id'] as int);
+      await _loadPosters();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Poster deleted.')));
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to delete poster.')),
+      );
+    }
+  }
+
+  String _formatNumber(dynamic value) {
+    if (value == null) {
+      return '-';
+    }
+    if (value is num) {
+      if (value % 1 == 0) {
+        return NumberFormat('#,###').format(value.toInt());
+      }
+      return NumberFormat('#,###.##').format(value);
+    }
+    final parsed = double.tryParse(value.toString());
+    if (parsed == null) {
+      return value.toString();
+    }
+    if (parsed % 1 == 0) {
+      return NumberFormat('#,###').format(parsed.toInt());
+    }
+    return NumberFormat('#,###.##').format(parsed);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final resultsText = _searchController.text.trim().isEmpty
+        ? '${_allPosters.length} poster(s)'
+        : '${_filteredPosters.length} result(s)';
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Poster Library'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh',
+            onPressed: _loadPosters,
+            icon: const Icon(Icons.refresh),
           ),
         ],
       ),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText:
+                                'Search by type, model, ID, or phone number',
+                            prefixIcon: const Icon(Icons.search),
+                            suffixIcon: _searchController.text.trim().isEmpty
+                                ? null
+                                : IconButton(
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      _filterPosters();
+                                    },
+                                    icon: const Icon(Icons.clear),
+                                  ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Chip(
+                        label: Text(resultsText),
+                        avatar: const Icon(Icons.inventory_2_outlined, size: 18),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Open any poster to preview the generated layout, replace images, and export the final design.',
+                      style: TextStyle(color: Colors.black54),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _filteredPosters.isEmpty
+                  ? _buildEmptyState()
+                  : ListView.separated(
+                      itemCount: _filteredPosters.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final poster = _filteredPosters[index];
+                        final imagePath = poster['image1']?.toString();
+                        final hasImage = imagePath != null &&
+                            imagePath.isNotEmpty &&
+                            File(imagePath).existsSync();
+
+                        return Card(
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      PosterViewerScreen(poster: poster),
+                                ),
+                              );
+                              _loadPosters();
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: hasImage
+                                        ? Image.file(
+                                            File(imagePath),
+                                            width: 96,
+                                            height: 96,
+                                            fit: BoxFit.cover,
+                                          )
+                                        : Container(
+                                            width: 96,
+                                            height: 96,
+                                            color: Colors.grey.shade200,
+                                            child: const Icon(
+                                              Icons.image_not_supported_outlined,
+                                              size: 32,
+                                            ),
+                                          ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${poster['type']} ${poster['model']}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: [
+                                            Chip(
+                                              label: Text('ID ${poster['web_id']}'),
+                                            ),
+                                            Chip(
+                                              label: Text(
+                                                'Price ${_formatNumber(poster['price'])}',
+                                              ),
+                                            ),
+                                            Chip(
+                                              label: Text(
+                                                'Distance ${_formatNumber(poster['distance_traveled'])}',
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Text(
+                                          poster['phone_number']?.toString().isNotEmpty ==
+                                                  true
+                                              ? poster['phone_number'].toString()
+                                              : 'No phone number',
+                                          style: const TextStyle(
+                                            color: Colors.black54,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Column(
+                                    children: [
+                                      IconButton(
+                                        tooltip: 'Open poster',
+                                        onPressed: () async {
+                                          await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => PosterViewerScreen(
+                                                poster: poster,
+                                              ),
+                                            ),
+                                          );
+                                          _loadPosters();
+                                        },
+                                        icon: const Icon(Icons.open_in_new),
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Delete poster',
+                                        onPressed: () => _confirmDelete(poster),
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                          color: Colors.red,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
+  }
 
-    if (shouldDelete != true) return;
-
-    try {
-      final id = poster['id'];
-      if (id == null) return;
-
-      await PosterDbService.instance.deletePosterById(id as int);
-      await _loadPosters();
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Poster deleted')));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Failed to delete poster')));
-    }
+  Widget _buildEmptyState() {
+    final searching = _searchController.text.trim().isNotEmpty;
+    return Center(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 520),
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.find_in_page_outlined, size: 54),
+            const SizedBox(height: 16),
+            Text(
+              searching ? 'No matching posters found.' : 'No posters saved yet.',
+              style: Theme.of(context).textTheme.titleLarge,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              searching
+                  ? 'Try a broader search using type, model, ID, or phone number.'
+                  : 'Create a poster from the home screen or import them from Excel.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.black54, height: 1.5),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

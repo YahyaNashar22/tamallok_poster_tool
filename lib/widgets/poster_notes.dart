@@ -7,22 +7,22 @@ class PosterNotes extends StatelessWidget {
     required this.notesTextSize,
   });
 
-  final dynamic notes;
+  final List<String> notes;
   final double notesTextSize;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 10, right: 0, top: 0, bottom: 0),
+      padding: const EdgeInsets.only(left: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Container(
             width: 240,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-            decoration: BoxDecoration(
-              color: Color(0XFF17652f),
-              borderRadius: const BorderRadius.only(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+            decoration: const BoxDecoration(
+              color: Color(0xFF17652F),
+              borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(12),
                 bottomLeft: Radius.circular(12),
               ),
@@ -31,7 +31,7 @@ class PosterNotes extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 Text(
-                  "ملاحظات",
+                  'ملاحظات',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: notesTextSize,
@@ -39,9 +39,9 @@ class PosterNotes extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(width: 16),
+                const SizedBox(width: 16),
                 Image.asset(
-                  "assets/note.png",
+                  'assets/note.png',
                   width: 32,
                   height: 32,
                   fit: BoxFit.contain,
@@ -49,20 +49,40 @@ class PosterNotes extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
           Padding(
             padding: const EdgeInsets.only(right: 24, top: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                ...notes.map(
-                  (note) => Text(
-                    note,
-                    textAlign: TextAlign.right,
-                    style: TextStyle(fontSize: 28, fontFamily: 'GE_SS'),
-                  ),
-                ),
-              ],
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: notes.isEmpty
+                    ? [
+                        Text(
+                          'لا توجد ملاحظات',
+                          style: TextStyle(
+                            fontSize: notesTextSize - 4,
+                            color: Colors.black54,
+                            fontFamily: 'GE_SS',
+                          ),
+                        ),
+                      ]
+                    : notes
+                        .map(
+                          (note) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Text(
+                              '• $note',
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                fontSize: notesTextSize,
+                                fontFamily: 'GE_SS',
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+              ),
             ),
           ),
         ],

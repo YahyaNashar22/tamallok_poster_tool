@@ -1,13 +1,15 @@
 import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:crop_your_image/crop_your_image.dart';
+import 'package:excel/excel.dart' hide Border;
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:poster_tool/data/poster_db_service.dart';
-import 'dart:typed_data';
-import 'package:crop_your_image/crop_your_image.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:excel/excel.dart' hide Border;
+import 'package:poster_tool/routes/app_routes.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,271 +29,440 @@ class _HomeScreenState extends State<HomeScreen> {
   final _notesController = TextEditingController();
   final _phoneController = TextEditingController();
   final _webIdController = TextEditingController();
-
-  final List<File?> _images = [null, null, null];
-  final ImagePicker _picker = ImagePicker();
   final _cropController = CropController();
+  final _scrollController = ScrollController();
+
+  final ImagePicker _picker = ImagePicker();
+  final List<File?> _images = [null, null, null];
+
   bool _isPickingImage = false;
+  bool _isSaving = false;
+  bool _isImporting = false;
 
-  final ScrollController _scrollController = ScrollController();
-
-  Future<void> _pickImage(int index) async {
-    setState(() => _isPickingImage = true);
-    final XFile? picked = await _picker.pickImage(source: ImageSource.gallery);
-    if (picked == null) {
-      if (!mounted) return;
-      setState(() => _isPickingImage = false);
-      return;
-    }
-
-    final Uint8List inputData = await picked.readAsBytes();
-
-    // show crop dialog
-    final File? croppedFile = await showDialog<File?>(
-      context: context,
-      builder: (context) {
-        final navigator = Navigator.of(context);
-        // Local flag to ensure we only pop the dialog once even if crop() is
-        // triggered multiple times (prevents double-pop crashes).
-        bool closed = false;
-
-        return Dialog(
-          child: SizedBox(
-            width: 700,
-            height: 700,
-            child: Column(
-              children: [
-                Expanded(
-                  child: Crop(
-                    controller: _cropController,
-                    image: inputData,
-                    onCropped: (result) async {
-                      if (closed) return;
-
-                      if (result is CropSuccess) {
-                        closed = true;
-                        final Uint8List croppedBytes = result.croppedImage;
-                        final dir = await getApplicationDocumentsDirectory();
-                        final uploadDir = Directory(
-                          p.join(dir.path, 'poster_tool_upload'),
-                        );
-                        if (!await uploadDir.exists()) {
-                          await uploadDir.create(recursive: true);
-                        }
-                        final outPath = p.join(
-                          uploadDir.path,
-                          '${DateTime.now().millisecondsSinceEpoch}_${p.basename(picked.path)}',
-                        );
-                        final outFile = File(outPath);
-                        await outFile.writeAsBytes(croppedBytes);
-                        navigator.pop(outFile);
-                        return;
-                      }
-
-                      // handle failure
-                      if (result is CropFailure) {
-                        if (!closed) {
-                          closed = true;
-                          navigator.pop(null);
-                        }
-                        return;
-                      }
-
-                      if (!closed) {
-                        closed = true;
-                        navigator.pop(null);
-                      }
-                    },
-                  ),
-                ),
-
-                // controls
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 8,
-                    horizontal: 12,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () {
-                          // trigger crop with current area
-                          _cropController.crop();
-                        },
-                        child: const Text('Crop & Save'),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          if (!closed) {
-                            closed = true;
-                            navigator.pop(null);
-                          }
-                        },
-                        child: const Text('Cancel'),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-
-    if (!mounted) return;
-
-    setState(() {
-      _isPickingImage = false;
-      if (croppedFile != null) _images[index] = croppedFile;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showQuickStart();
     });
   }
 
+  @override
+  void dispose() {
+    _typeController.dispose();
+    _modelController.dispose();
+    _priceController.dispose();
+    _distanceController.dispose();
+    _engineController.dispose();
+    _locationController.dispose();
+    _notesController.dispose();
+    _phoneController.dispose();
+    _webIdController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _showQuickStart() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Quick Start'),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('1. Add up to 3 cropped images for the vehicle.'),
+              SizedBox(height: 8),
+              Text('2. Fill the poster fields and keep the ID unique.'),
+              SizedBox(height: 8),
+              Text('3. Save the poster, review it, then export the final asset.'),
+              SizedBox(height: 8),
+              Text(
+                'You can also import many posters from Excel if your sheet follows the app field order.',
+              ),
+            ],
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Start'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _pickImage(int index) async {
+    setState(() => _isPickingImage = true);
+    try {
+      final XFile? picked = await _picker.pickImage(source: ImageSource.gallery);
+      if (picked == null) {
+        return;
+      }
+
+      final Uint8List inputData = await picked.readAsBytes();
+      final File? croppedFile = await showDialog<File?>(
+        context: context,
+        builder: (context) {
+          final navigator = Navigator.of(context);
+          var closed = false;
+
+          return Dialog(
+            child: SizedBox(
+              width: 700,
+              height: 700,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Crop(
+                      controller: _cropController,
+                      image: inputData,
+                      onCropped: (result) async {
+                        if (closed) {
+                          return;
+                        }
+
+                        if (result is CropSuccess) {
+                          closed = true;
+                          final dir = await getApplicationDocumentsDirectory();
+                          final uploadDir = Directory(
+                            p.join(dir.path, 'poster_tool_upload'),
+                          );
+                          if (!await uploadDir.exists()) {
+                            await uploadDir.create(recursive: true);
+                          }
+                          final outPath = p.join(
+                            uploadDir.path,
+                            '${DateTime.now().millisecondsSinceEpoch}_${p.basename(picked.path)}',
+                          );
+                          final outFile = File(outPath);
+                          await outFile.writeAsBytes(result.croppedImage);
+                          navigator.pop(outFile);
+                          return;
+                        }
+
+                        closed = true;
+                        navigator.pop(null);
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 12,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        FilledButton(
+                          onPressed: _cropController.crop,
+                          child: const Text('Crop & Save'),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            if (!closed) {
+                              closed = true;
+                              navigator.pop(null);
+                            }
+                          },
+                          child: const Text('Cancel'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+
+      if (!mounted || croppedFile == null) {
+        return;
+      }
+
+      setState(() {
+        _images[index] = croppedFile;
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isPickingImage = false);
+      }
+    }
+  }
+
   Future<void> _submit() async {
-    if (_formKey.currentState!.validate()) {
-      // Save to database here, e.g.:
+    FocusScope.of(context).unfocus();
+    if (!_formKey.currentState!.validate()) {
+      _showMessage('Please complete the required fields correctly.');
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
       await PosterDbService.instance.insertPoster(
         image1: _images[0]?.path,
         image2: _images[1]?.path,
         image3: _images[2]?.path,
         type: _typeController.text,
         model: _modelController.text,
-        price: double.tryParse(_priceController.text),
-        distanceTraveled: double.tryParse(_distanceController.text),
+        price: _parseOptionalNumber(_priceController.text),
+        distanceTraveled: _parseOptionalNumber(_distanceController.text),
         engineSize: _engineController.text,
         location: _locationController.text,
         notes: _notesController.text
             .split(',')
-            .map((e) => e.trim())
-            .where((e) => e.isNotEmpty)
+            .map((note) => note.trim())
+            .where((note) => note.isNotEmpty)
             .toList(),
         phoneNumber: _phoneController.text,
         webId: _webIdController.text,
       );
 
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Poster saved successfully')),
-      );
-
-      _formKey.currentState!.reset();
-      setState(() => _images.fillRange(0, 3, null));
+      _resetForm();
+      _showMessage('Poster saved successfully.');
+    } catch (error) {
+      final message = error.toString().contains('UNIQUE constraint failed')
+          ? 'This ID already exists. Use a different ID.'
+          : 'Failed to save the poster.';
+      _showMessage(message);
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
+  Future<void> _importFromExcel() async {
+    setState(() => _isImporting = true);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['xlsx', 'xls'],
+      );
+      if (result == null || result.files.single.path == null) {
+        return;
+      }
+
+      final fileBytes = await File(result.files.single.path!).readAsBytes();
+      final excel = Excel.decodeBytes(fileBytes);
+
+      final appDir = await getApplicationDocumentsDirectory();
+      final uploadDir = Directory(p.join(appDir.path, 'poster_tool_upload'));
+      if (!await uploadDir.exists()) {
+        await uploadDir.create(recursive: true);
+      }
+
+      Future<String?> ensureImageInUpload(String? imagePath) async {
+        if (imagePath == null) {
+          return null;
+        }
+        final trimmed = imagePath.trim();
+        if (trimmed.isEmpty) {
+          return null;
+        }
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+          return trimmed;
+        }
+
+        final file = File(trimmed);
+        if (!await file.exists()) {
+          return null;
+        }
+
+        final outPath = p.join(
+          uploadDir.path,
+          '${DateTime.now().millisecondsSinceEpoch}_${p.basename(trimmed)}',
+        );
+        final copied = await file.copy(outPath);
+        return copied.path;
+      }
+
+      var inserted = 0;
+      var skipped = 0;
+
+      for (final table in excel.tables.keys) {
+        final rows = excel.tables[table]!.rows;
+        if (rows.length <= 1) {
+          continue;
+        }
+
+        for (var i = 1; i < rows.length; i++) {
+          final row = rows[i];
+          final type = _cellValue(row, 3);
+          final model = _cellValue(row, 4);
+          final webId = _cellValue(row, 11);
+
+          if (type.isEmpty || model.isEmpty || webId.isEmpty) {
+            skipped++;
+            continue;
+          }
+
+          try {
+            final image1 = await ensureImageInUpload(_cellValue(row, 0));
+            final image2 = await ensureImageInUpload(_cellValue(row, 1));
+            final image3 = await ensureImageInUpload(_cellValue(row, 2));
+
+            await PosterDbService.instance.insertPoster(
+              image1: image1,
+              image2: image2,
+              image3: image3,
+              type: type,
+              model: model,
+              price: _parseOptionalNumber(_cellValue(row, 5)),
+              distanceTraveled: _parseOptionalNumber(_cellValue(row, 6)),
+              engineSize: _cellValue(row, 7),
+              location: _cellValue(row, 8),
+              notes: _cellValue(row, 9)
+                  .split(',')
+                  .map((note) => note.trim())
+                  .where((note) => note.isNotEmpty)
+                  .toList(),
+              phoneNumber: _cellValue(row, 10),
+              webId: webId,
+            );
+            inserted++;
+          } catch (_) {
+            skipped++;
+          }
+        }
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      await showDialog<void>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('Import Complete'),
+            content: Text(
+              'Imported $inserted poster(s). Skipped $skipped row(s) because they were incomplete or invalid.',
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        },
+      );
+    } catch (error) {
+      _showMessage('Excel import failed: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _isImporting = false);
+      }
+    }
+  }
+
+  void _resetForm() {
+    _formKey.currentState!.reset();
+    _typeController.clear();
+    _modelController.clear();
+    _priceController.clear();
+    _distanceController.clear();
+    _engineController.clear();
+    _locationController.clear();
+    _notesController.clear();
+    _phoneController.clear();
+    _webIdController.clear();
+    setState(() {
+      _images.fillRange(0, _images.length, null);
+    });
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _cellValue(List<Data?> row, int index) {
+    if (index >= row.length || row[index]?.value == null) {
+      return '';
+    }
+    return row[index]!.value.toString().trim();
+  }
+
+  double? _parseOptionalNumber(String raw) {
+    final normalized = raw.replaceAll(',', '').trim();
+    if (normalized.isEmpty) {
+      return null;
+    }
+    return double.tryParse(normalized);
+  }
+
   Widget _buildImagePicker(int index) {
-    return GestureDetector(
-      onTap: () => _pickImage(index),
+    final image = _images[index];
+
+    return Expanded(
       child: Container(
-        width: 100,
-        height: 100,
+        margin: EdgeInsets.only(right: index == 2 ? 0 : 12),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade400),
-          borderRadius: BorderRadius.circular(12),
-          color: Colors.grey.shade100,
-          image: _images[index] != null
-              ? DecorationImage(
-                  image: FileImage(_images[index]!),
-                  fit: BoxFit.cover,
-                )
-              : null,
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.grey.shade300),
         ),
-        child: _images[index] == null
-            ? const Icon(Icons.add_a_photo, color: Colors.grey, size: 30)
-            : null,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Create Poster'), centerTitle: true),
-      body: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 700),
-          padding: const EdgeInsets.all(20),
-          child: Form(
-            key: _formKey,
-            child: ListView(
+        child: Column(
+          children: [
+            GestureDetector(
+              onTap: _isPickingImage ? null : () => _pickImage(index),
+              child: Container(
+                height: 130,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  color: const Color(0xFFF2F2F2),
+                  image: image != null
+                      ? DecorationImage(
+                          image: FileImage(image),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
+                alignment: Alignment.center,
+                child: image == null
+                    ? const Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.add_photo_alternate_outlined, size: 30),
+                          SizedBox(height: 8),
+                          Text('Add image'),
+                        ],
+                      )
+                    : null,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Poster Details',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 20),
+                Text('Image ${index + 1}'),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: _isPickingImage
-                      ? [
-                          CircularProgressIndicator(),
-                          CircularProgressIndicator(),
-                          CircularProgressIndicator(),
-                        ]
-                      : List.generate(3, _buildImagePicker),
-                ),
-                const SizedBox(height: 20),
-                _buildTextField(_typeController, 'Type', required: true),
-                _buildTextField(_modelController, 'Model', required: true),
-                _buildTextField(
-                  _priceController,
-                  'Price',
-                  keyboard: TextInputType.number,
-                ),
-                _buildTextField(
-                  _distanceController,
-                  'Distance Traveled',
-                  keyboard: TextInputType.number,
-                ),
-                _buildTextField(_engineController, 'Engine Size'),
-                _buildTextField(_locationController, 'Location'),
-                _buildTextField(
-                  _notesController,
-                  'Notes (comma separated)',
-                  maxLines: 3,
-                ),
-                _buildTextField(
-                  _phoneController,
-                  'Phone Number',
-                  keyboard: TextInputType.phone,
-                ),
-                _buildTextField(
-                  _webIdController,
-                  'ID',
-                  keyboard: TextInputType.text,
-                ),
-                const SizedBox(height: 25),
-                ElevatedButton.icon(
-                  onPressed: _submit,
-                  icon: const Icon(Icons.save),
-                  label: const Text('Save Poster'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    textStyle: const TextStyle(fontSize: 18),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: () => Navigator.pushNamed(context, '/all_posters'),
-                  icon: const Icon(Icons.list),
-                  label: const Text('Show All Posters'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: _importFromExcel,
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text('Import from Excel'),
+                  children: [
+                    IconButton(
+                      tooltip: image == null ? 'Select image' : 'Replace image',
+                      onPressed: _isPickingImage ? null : () => _pickImage(index),
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                    IconButton(
+                      tooltip: 'Remove image',
+                      onPressed: image == null
+                          ? null
+                          : () => setState(() => _images[index] = null),
+                      icon: const Icon(Icons.delete_outline),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -303,132 +474,331 @@ class _HomeScreenState extends State<HomeScreen> {
     bool required = false,
     TextInputType keyboard = TextInputType.text,
     int maxLines = 1,
+    String? helperText,
+    String? Function(String?)? validator,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 15),
+      padding: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
         controller: controller,
         keyboardType: keyboard,
         maxLines: maxLines,
         decoration: InputDecoration(
           labelText: label,
-          border: const OutlineInputBorder(),
+          helperText: helperText,
         ),
-        validator: required ? (v) => v!.isEmpty ? 'Enter $label' : null : null,
+        validator: validator ??
+            (required
+                ? (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Enter $label';
+                    }
+                    return null;
+                  }
+                : null),
       ),
     );
   }
 
-  Future<void> _importFromExcel() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['xlsx', 'xls'],
+  Widget _buildSectionCard({
+    required String title,
+    required String subtitle,
+    required Widget child,
+    Widget? trailing,
+  }) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
+                      ),
+                    ],
+                  ),
+                ),
+                if (trailing != null) trailing,
+              ],
+            ),
+            const SizedBox(height: 20),
+            child,
+          ],
+        ),
+      ),
     );
-    if (result == null) return;
+  }
 
-    final fileBytes = File(result.files.single.path!).readAsBytesSync();
-    final excel = Excel.decodeBytes(fileBytes);
-
-    // prepare upload directory once
-    final appDir = await getApplicationDocumentsDirectory();
-    final uploadDir = Directory(p.join(appDir.path, 'poster_tool_upload'));
-    if (!await uploadDir.exists()) {
-      await uploadDir.create(recursive: true);
-    }
-
-    // helper: ensure a referenced image is copied into uploadDir
-    Future<String?> _ensureImageInUpload(String? imagePath) async {
-      if (imagePath == null) return null;
-      final String trimmed = imagePath.trim();
-      if (trimmed.isEmpty) return null;
-
-      // If it's a remote URL, leave it as-is
-      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-        return trimmed;
-      }
-
-      final File f = File(trimmed);
-      if (!await f.exists()) {
-        // If the file doesn't exist, return the original path so the importer
-        // can decide what to do (or keep it empty)
-        return trimmed;
-      }
-
-      final String outPath = p.join(
-        uploadDir.path,
-        '${DateTime.now().millisecondsSinceEpoch}_${p.basename(trimmed)}',
-      );
-      final File outFile = await f.copy(outPath);
-      return outFile.path;
-    }
-
-    int inserted = 0;
-    for (var table in excel.tables.keys) {
-      final rows = excel.tables[table]!.rows;
-      if (rows.isEmpty) continue;
-
-      for (int i = 1; i < rows.length; i++) {
-        final row = rows[i];
-        try {
-          // copy images into upload folder (if local files)
-          final String? rawImage1 = row.length > 0
-              ? row[0]?.value?.toString()
-              : null;
-          final String? rawImage2 = row.length > 1
-              ? row[1]?.value?.toString()
-              : null;
-          final String? rawImage3 = row.length > 2
-              ? row[2]?.value?.toString()
-              : null;
-
-          final String? image1 = await _ensureImageInUpload(rawImage1);
-          final String? image2 = await _ensureImageInUpload(rawImage2);
-          final String? image3 = await _ensureImageInUpload(rawImage3);
-
-          await PosterDbService.instance.insertPoster(
-            image1: image1,
-            image2: image2,
-            image3: image3,
-            type: row.length > 3 ? row[3]?.value?.toString() ?? '' : '',
-            model: row.length > 4 ? row[4]?.value?.toString() ?? '' : '',
-            price: double.tryParse(
-              row.length > 5 ? row[5]?.value?.toString() ?? '' : '',
+  Future<void> _confirmClearForm() async {
+    final shouldClear = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Clear Form'),
+          content: const Text(
+            'This will remove the current draft values and selected images.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
             ),
-            distanceTraveled: double.tryParse(
-              row.length > 6 ? row[6]?.value?.toString() ?? '' : '',
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Clear'),
             ),
-            engineSize: row.length > 7 ? row[7]?.value?.toString() : '',
-            location: row.length > 8 ? row[8]?.value?.toString() : '',
-            notes: row.length > 9
-                ? (row[9]?.value != null
-                      ? row[9]!.value
-                            .toString()
-                            .split(',')
-                            .map((e) => e.trim())
-                            .toList()
-                      : [])
-                : [],
-            phoneNumber: row.length > 10
-                ? row[10]?.value?.toString() ?? ''
-                : '',
-            webId: row.length > 11 ? row[11]?.value?.toString() ?? '' : '',
-          );
+          ],
+        );
+      },
+    );
 
-          inserted++;
-        } catch (e) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('problem importing: $e')));
-          continue;
-        }
-      }
+    if (shouldClear == true) {
+      _resetForm();
     }
+  }
 
-    if (!mounted) return;
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('✅ Imported $inserted posters')));
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Create Poster'),
+        actions: [
+          IconButton(
+            tooltip: 'Creation guide',
+            onPressed: _showQuickStart,
+            icon: const Icon(Icons.help_outline),
+          ),
+          IconButton(
+            tooltip: 'View all posters',
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.allPosters),
+            icon: const Icon(Icons.view_list_outlined),
+          ),
+        ],
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 980),
+          child: RawScrollbar(
+            controller: _scrollController,
+            interactive: true,
+            thumbVisibility: true,
+            trackVisibility: false,
+            thickness: 10,
+            radius: const Radius.circular(999),
+            thumbColor: const Color(0xFF17652F),
+            child: ScrollConfiguration(
+              behavior: ScrollConfiguration.of(
+                context,
+              ).copyWith(scrollbars: false),
+              child: ListView(
+                controller: _scrollController,
+                primary: false,
+                padding: const EdgeInsets.all(24),
+                children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1C6B34), Color(0xFFB4892B)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Poster production workspace',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Prepare ad data, crop vehicle images, save reusable records, and export channel-ready posters from the review screen.',
+                      style: TextStyle(color: Colors.white, height: 1.5),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    _buildSectionCard(
+                      title: 'Images',
+                      subtitle:
+                          'Use up to 3 images. Each one can be cropped before it is saved.',
+                      trailing: _isPickingImage
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : null,
+                      child: Row(children: List.generate(3, _buildImagePicker)),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSectionCard(
+                      title: 'Poster Details',
+                      subtitle:
+                          'The type, model, and ID are required because they define the poster record.',
+                      child: Column(
+                        children: [
+                          _buildTextField(
+                            _typeController,
+                            'Type',
+                            required: true,
+                            helperText: 'Example: Sedan, SUV, Pickup',
+                          ),
+                          _buildTextField(
+                            _modelController,
+                            'Model',
+                            required: true,
+                            helperText: 'Example: Toyota Camry 2023',
+                          ),
+                          _buildTextField(
+                            _priceController,
+                            'Price',
+                            keyboard: TextInputType.number,
+                            helperText: 'Numbers only. Commas are allowed.',
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return null;
+                              }
+                              return _parseOptionalNumber(value) == null
+                                  ? 'Enter a valid number'
+                                  : null;
+                            },
+                          ),
+                          _buildTextField(
+                            _distanceController,
+                            'Distance Traveled',
+                            keyboard: TextInputType.number,
+                            helperText: 'Mileage or traveled distance.',
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return null;
+                              }
+                              return _parseOptionalNumber(value) == null
+                                  ? 'Enter a valid number'
+                                  : null;
+                            },
+                          ),
+                          _buildTextField(_engineController, 'Engine Size'),
+                          _buildTextField(_locationController, 'Location'),
+                          _buildTextField(
+                            _notesController,
+                            'Notes',
+                            maxLines: 3,
+                            helperText:
+                                'Separate multiple notes with commas. They will appear as poster bullets.',
+                          ),
+                          _buildTextField(
+                            _phoneController,
+                            'Phone Number',
+                            keyboard: TextInputType.phone,
+                          ),
+                          _buildTextField(
+                            _webIdController,
+                            'Poster ID',
+                            required: true,
+                            helperText: 'Must stay unique across posters.',
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSectionCard(
+                      title: 'Bulk Import',
+                      subtitle:
+                          'Expected column order: image1, image2, image3, type, model, price, distance, engine, location, notes, phone, ID.',
+                      trailing: IconButton(
+                        tooltip: 'Import posters from Excel',
+                        onPressed: _isImporting ? null : _importFromExcel,
+                        icon: _isImporting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.upload_file_outlined),
+                      ),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF7F4EA),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: const Text(
+                          'Rows missing Type, Model, or ID are skipped automatically. Local image paths are copied into the app upload folder so poster previews remain stable.',
+                          style: TextStyle(height: 1.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: _isSaving ? null : _submit,
+                          icon: _isSaving
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.save_outlined),
+                          label: const Text('Save Poster'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _confirmClearForm,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Clear Draft'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              Navigator.pushNamed(context, AppRoutes.allPosters),
+                          icon: const Icon(Icons.list_alt_outlined),
+                          label: const Text('Show All Posters'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

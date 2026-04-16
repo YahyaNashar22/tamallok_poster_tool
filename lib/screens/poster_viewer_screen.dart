@@ -1,18 +1,18 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+
+import 'package:crop_your_image/crop_your_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:poster_tool/data/poster_db_service.dart';
 import 'package:poster_tool/widgets/custom_icon_btn.dart';
 import 'package:poster_tool/widgets/poster_footer.dart';
 import 'package:poster_tool/widgets/poster_notes.dart';
-import 'package:intl/intl.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:crop_your_image/crop_your_image.dart';
-import 'package:path/path.dart' as p;
-import 'package:poster_tool/data/poster_db_service.dart';
 
 class PosterViewerScreen extends StatefulWidget {
   final Map<String, dynamic> poster;
@@ -25,29 +25,30 @@ class PosterViewerScreen extends StatefulWidget {
 
 class _PosterViewerScreenState extends State<PosterViewerScreen> {
   final GlobalKey _exportKey = GlobalKey();
-  bool _exporting = false;
+  final ImagePicker _picker = ImagePicker();
+  final CropController _cropController = CropController();
 
+  bool _exporting = false;
   String _selectedLogo = 'assets/green_logo.png';
-  bool _logoCentered = true;
+  bool _logoCentered = false;
   String _platform = 'meta';
 
-  final ImagePicker _picker = ImagePicker();
-  final _cropController = CropController();
-
   double _posterWidth = 1080;
-  double _posterHeight = 1080;
-  double _posterPaddingTop = 4;
-  double _logoWidth = 258;
-  double _logoAyaSizedBoxHeight = 24;
-  double _ayaWidth = 416;
-  double _ayaSizedBoxHeight = 12;
-  double _carImgWidth = 540;
-  double _carImgHeight = 182;
-  double _carInfoHeight = 576;
+  double _posterHeight = 1350;
+  double _posterPaddingTop = 28;
+  double _logoWidth = 178;
+  double _logoAyaSizedBoxHeight = 18;
+  double _ayaWidth = 420;
+  double _ayaSizedBoxHeight = 26;
+  double _carImgWidth = 420;
+  double _carImgHeight = 260;
+  double _carInfoHeight = 660;
   double _carInfoPaddingY = 8;
   double _carInfoTextSize = 24;
   double _carInfoIconSize = 22;
-  double notesTextSize = 24;
+  double _notesTextSize = 24;
+  double _contentGap = 64;
+  double _detailsBoxWidth = 420;
 
   void _changePlatform(String platform) {
     if (platform == 'snap') {
@@ -55,111 +56,135 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
         _platform = 'snap';
         _posterWidth = 1080;
         _posterHeight = 1920;
-        _posterPaddingTop = 0;
-        _logoWidth = 318;
+        _posterPaddingTop = 34;
+        _logoWidth = 210;
         _logoAyaSizedBoxHeight = 32;
         _ayaWidth = 534;
-        _ayaSizedBoxHeight = 0;
-        _carImgWidth = 600;
-        _carImgHeight = 390;
-        _carInfoHeight = 1180;
+        _ayaSizedBoxHeight = 36;
+        _carImgWidth = 500;
+        _carImgHeight = 330;
+        _carInfoHeight = 1020;
         _carInfoPaddingY = 16;
         _carInfoTextSize = 26;
         _carInfoIconSize = 24;
-        notesTextSize = 28;
+        _notesTextSize = 28;
+        _contentGap = 52;
+        _detailsBoxWidth = 420;
       });
-    } else if (platform == 'meta') {
-      setState(() {
-        // Meta layout: square 1:1 (e.g. Instagram/Facebook square post)
-        _platform = 'meta';
-        _posterWidth = 1080;
-        _posterHeight = 1350;
-        _posterPaddingTop = 4;
-        _logoWidth = 258;
-        _logoAyaSizedBoxHeight = 24;
-        _ayaWidth = 416;
-        _ayaSizedBoxHeight = 12;
-        _carImgWidth = 300;
-        _carImgHeight = 200;
-        _carInfoHeight = 600;
-        _carInfoPaddingY = 8;
-        _carInfoTextSize = 24;
-        _carInfoIconSize = 22;
-        notesTextSize = 24;
-      });
+      return;
     }
+
+    setState(() {
+      _platform = 'meta';
+      _posterWidth = 1080;
+      _posterHeight = 1350;
+      _posterPaddingTop = 28;
+      _logoWidth = 178;
+      _logoAyaSizedBoxHeight = 18;
+      _ayaWidth = 420;
+      _ayaSizedBoxHeight = 26;
+      _carImgWidth = 420;
+      _carImgHeight = 260;
+      _carInfoHeight = 660;
+      _carInfoPaddingY = 8;
+      _carInfoTextSize = 24;
+      _carInfoIconSize = 22;
+      _notesTextSize = 24;
+      _contentGap = 64;
+      _detailsBoxWidth = 420;
+    });
+  }
+
+  void _applyJordanMeta() {
+    _changePlatform('meta');
+    _changeLogo('assets/green_logo.png');
+  }
+
+  void _applyJordanSnap() {
+    _changePlatform('snap');
+    _changeLogo('assets/green_logo.png');
+  }
+
+  void _applySaudiMeta() {
+    _changePlatform('meta');
+    _changeLogo('assets/sayaracom.png');
+  }
+
+  void _applySaudiSnap() {
+    _changePlatform('snap');
+    _changeLogo('assets/sayaracom.png');
+  }
+
+  void _changeLogo(String logo) {
+    setState(() => _selectedLogo = logo);
+  }
+
+  void _toggleLogoAlignment() {
+    setState(() => _logoCentered = !_logoCentered);
   }
 
   String _formatValue(dynamic value) {
-    if (value == null) return '';
-
-    // if it's a string, try to parse it
-    if (value is String) {
-      final parsed = double.tryParse(value);
-      if (parsed != null) {
-        if (parsed % 1 == 0) {
-          return NumberFormat('#,###', 'en_US').format(parsed.toInt());
-        }
-        return NumberFormat('#,###.##', 'en_US').format(parsed);
-      }
-      return value; // not numeric string
+    if (value == null) {
+      return '';
     }
-
-    // if it's numeric
     if (value is num) {
       if (value % 1 == 0) {
         return NumberFormat('#,###', 'en_US').format(value.toInt());
       }
       return NumberFormat('#,###.##', 'en_US').format(value);
     }
-
-    return value.toString();
+    final parsed = double.tryParse(value.toString());
+    if (parsed == null) {
+      return value.toString();
+    }
+    if (parsed % 1 == 0) {
+      return NumberFormat('#,###', 'en_US').format(parsed.toInt());
+    }
+    return NumberFormat('#,###.##', 'en_US').format(parsed);
   }
 
-  void _changeLogo(String logo) {
-    setState(() {
-      _selectedLogo = logo;
-    });
-  }
-
-  void _toggleLogoAlignment() {
-    setState(() {
-      _logoCentered = !_logoCentered;
-    });
-  }
-
-  void _jordanMeta() {
-    _changePlatform('meta');
-    _changeLogo("assets/green_logo.png");
-  }
-
-  void _jordanSnap() {
-    _changePlatform('snap');
-    _changeLogo("assets/green_logo.png");
-  }
-
-  void _saudiMeta() {
-    _changePlatform('meta');
-    _changeLogo("assets/sayaracom.png");
-  }
-
-  void _saudiSnap() {
-    _changePlatform('snap');
-    _changeLogo("assets/sayaracom.png");
+  Future<void> _showLayoutHelp() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Preview Controls'),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Tap any poster image to replace and crop it.'),
+              SizedBox(height: 8),
+              Text('Use JO/SA buttons to switch market branding.'),
+              SizedBox(height: 8),
+              Text('Blue buttons create Meta layouts and amber buttons create Snap layouts.'),
+              SizedBox(height: 8),
+              Text('Export saves a PNG into the app documents folder.'),
+            ],
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _editImage(int index) async {
     final XFile? picked = await _picker.pickImage(source: ImageSource.gallery);
-    if (picked == null) return;
+    if (picked == null) {
+      return;
+    }
 
     final Uint8List inputData = await picked.readAsBytes();
-
-    // show crop dialog
     final File? croppedFile = await showDialog<File?>(
       context: context,
       builder: (context) {
         final navigator = Navigator.of(context);
-        bool closed = false;
+        var closed = false;
 
         return Dialog(
           child: SizedBox(
@@ -172,11 +197,12 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                     controller: _cropController,
                     image: inputData,
                     onCropped: (result) async {
-                      if (closed) return;
+                      if (closed) {
+                        return;
+                      }
 
                       if (result is CropSuccess) {
                         closed = true;
-                        final Uint8List croppedBytes = result.croppedImage;
                         final dir = await getApplicationDocumentsDirectory();
                         final uploadDir = Directory(
                           p.join(dir.path, 'poster_tool_upload'),
@@ -184,28 +210,19 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                         if (!await uploadDir.exists()) {
                           await uploadDir.create(recursive: true);
                         }
+
                         final outPath = p.join(
                           uploadDir.path,
                           '${DateTime.now().millisecondsSinceEpoch}_${p.basename(picked.path)}_${widget.poster['web_id']}',
                         );
                         final outFile = File(outPath);
-                        await outFile.writeAsBytes(croppedBytes);
+                        await outFile.writeAsBytes(result.croppedImage);
                         navigator.pop(outFile);
                         return;
                       }
 
-                      if (result is CropFailure) {
-                        if (!closed) {
-                          closed = true;
-                          navigator.pop(null);
-                        }
-                        return;
-                      }
-
-                      if (!closed) {
-                        closed = true;
-                        navigator.pop(null);
-                      }
+                      closed = true;
+                      navigator.pop(null);
                     },
                   ),
                 ),
@@ -217,13 +234,11 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      ElevatedButton(
-                        onPressed: () {
-                          _cropController.crop();
-                        },
+                      FilledButton(
+                        onPressed: _cropController.crop,
                         child: const Text('Crop & Save'),
                       ),
-                      ElevatedButton(
+                      TextButton(
                         onPressed: () {
                           if (!closed) {
                             closed = true;
@@ -242,395 +257,475 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
       },
     );
 
-    if (croppedFile == null) return;
+    if (croppedFile == null) {
+      return;
+    }
 
-    // Update the poster data and save to database
+    final imageField = 'image${index + 1}';
+
     try {
-      // Update widget.poster with new image path
-      if (index == 0) {
-        widget.poster['image1'] = croppedFile.path;
-      } else if (index == 1) {
-        widget.poster['image2'] = croppedFile.path;
-      } else if (index == 2) {
-        widget.poster['image3'] = croppedFile.path;
-      }
-
-      // Save to database
+      widget.poster[imageField] = croppedFile.path;
       await PosterDbService.instance.updatePosterById(
-        widget.poster['id'],
+        widget.poster['id'] as int,
         image1: index == 0 ? croppedFile.path : null,
         image2: index == 1 ? croppedFile.path : null,
         image3: index == 2 ? croppedFile.path : null,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {});
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Image updated successfully')),
-      );
-    } catch (e) {
-      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('❌ Failed to update image: $e')));
+      ).showSnackBar(const SnackBar(content: Text('Image updated successfully.')));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update image: $error')),
+      );
     }
   }
 
   Future<void> _exportAsImage() async {
-    if (_exporting) return;
+    if (_exporting) {
+      return;
+    }
+
     setState(() => _exporting = true);
 
     try {
-      // Wait for the UI to rebuild with the new size
-      await Future.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
       await WidgetsBinding.instance.endOfFrame;
 
-      RenderRepaintBoundary boundary =
-          _exportKey.currentContext!.findRenderObject()
-              as RenderRepaintBoundary;
-      ui.Image image = await boundary.toImage(pixelRatio: 1.0);
+      final boundary = _exportKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary == null) {
+        throw Exception('Poster preview is not ready yet.');
+      }
 
-      ByteData? byteData = await image.toByteData(
-        format: ui.ImageByteFormat.png,
-      );
-      Uint8List pngBytes = byteData!.buffer.asUint8List();
+      final image = await boundary.toImage(pixelRatio: 1.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+        throw Exception('Could not encode preview to PNG.');
+      }
 
+      final pngBytes = byteData.buffer.asUint8List();
       final dir = await getApplicationDocumentsDirectory();
-      final exportDir = Directory('${dir.path}/poster_tool');
-      if (!exportDir.existsSync()) {
-        exportDir.createSync(recursive: true);
+      final exportDir = Directory(p.join(dir.path, 'poster_tool_exports'));
+      if (!await exportDir.exists()) {
+        await exportDir.create(recursive: true);
       }
 
       final file = File(
-        '${exportDir.path}/${_platform}_poster_${DateTime.now().millisecondsSinceEpoch}.png',
+        p.join(
+          exportDir.path,
+          '${_platform}_poster_${widget.poster['web_id']}_${DateTime.now().millisecondsSinceEpoch}.png',
+        ),
       );
       await file.writeAsBytes(pngBytes);
 
+      if (!mounted) {
+        return;
+      }
+
+      await showDialog<void>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('Export Complete'),
+            content: Text('Poster saved to:\n${file.path}'),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        },
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('✅ Exported to: ${file.path}')));
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('❌ Failed to export: $e')));
+      ).showSnackBar(SnackBar(content: Text('Failed to export: $error')));
     } finally {
-      setState(() => _exporting = false);
+      if (mounted) {
+        setState(() => _exporting = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final poster = widget.poster;
-
-    final List<String> images = [
+    final imageFields = [
       poster['image1'],
       poster['image2'],
       poster['image3'],
-    ].where((e) => e != null && e.isNotEmpty).cast<String>().toList();
-
-    final notes = (poster['notes'] is String)
-        ? List<String>.from(jsonDecode(poster['notes']))
-        : (poster['notes'] ?? []);
+    ];
+    final hasAnyImage = imageFields.any(
+      (image) => image != null && image.toString().isNotEmpty,
+    );
+    final notes = (poster['notes'] as List?)?.cast<String>() ?? <String>[];
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Poster Viewer"),
+        title: const Text('Poster Preview'),
         actions: [
-          _exporting
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: SizedBox(
-                    width: 22,
-                    height: 22,
+          IconButton(
+            tooltip: 'Preview help',
+            onPressed: _showLayoutHelp,
+            icon: const Icon(Icons.help_outline),
+          ),
+          IconButton(
+            tooltip: _logoCentered ? 'Align logo left' : 'Center logo',
+            onPressed: _toggleLogoAlignment,
+            icon: Icon(
+              _logoCentered
+                  ? Icons.align_horizontal_left
+                  : Icons.align_horizontal_center,
+            ),
+          ),
+          const SizedBox(width: 12),
+          CustomIconBtn(
+            text: 'JO',
+            color: Colors.blue,
+            toolTip: 'Jordan Meta layout',
+            onPressed: _applyJordanMeta,
+          ),
+          CustomIconBtn(
+            text: 'JO',
+            color: Colors.amber,
+            toolTip: 'Jordan Snap layout',
+            onPressed: _applyJordanSnap,
+          ),
+          const SizedBox(width: 10),
+          CustomIconBtn(
+            text: 'SA',
+            color: Colors.blue,
+            toolTip: 'Saudi Meta layout',
+            onPressed: _applySaudiMeta,
+          ),
+          CustomIconBtn(
+            text: 'SA',
+            color: Colors.amber,
+            toolTip: 'Saudi Snap layout',
+            onPressed: _applySaudiSnap,
+          ),
+          const SizedBox(width: 10),
+          IconButton(
+            tooltip: 'Export poster',
+            onPressed: _exporting ? null : _exportAsImage,
+            icon: _exporting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                )
-              : Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        _logoCentered
-                            ? Icons.align_horizontal_center
-                            : Icons.align_horizontal_left,
-                      ),
-                      onPressed: () => _toggleLogoAlignment(),
-                      tooltip: "Logo Alignment",
-                    ),
-                    const SizedBox(width: 24),
-                    CustomIconBtn(
-                      text: 'JO',
-                      color: Colors.blue,
-                      toolTip: "Jordan Meta",
-                      onPressed: _jordanMeta,
-                    ),
-                    CustomIconBtn(
-                      text: 'JO',
-                      color: Colors.amber,
-                      toolTip: "Jordan Snap",
-                      onPressed: _jordanSnap,
-                    ),
-                    const SizedBox(width: 24),
-                    CustomIconBtn(
-                      text: 'SA',
-                      color: Colors.blue,
-                      toolTip: "Saudi Meta",
-                      onPressed: _saudiMeta,
-                    ),
-                    CustomIconBtn(
-                      text: 'SA',
-                      color: Colors.amber,
-                      toolTip: "Jordan Meta",
-                      onPressed: _saudiSnap,
-                    ),
-                    const SizedBox(width: 24),
-                    IconButton(
-                      icon: const Icon(Icons.download),
-                      onPressed: _exportAsImage,
-                      tooltip: "Generate Image",
-                    ),
-                  ],
-                ),
+                  )
+                : const Icon(Icons.download_outlined),
+          ),
+          const SizedBox(width: 12),
         ],
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          child: RepaintBoundary(
-            key: _exportKey,
-            child: Container(
-              decoration: BoxDecoration(
-                image: DecorationImage(
-                  image: AssetImage('assets/poster_bg.jpg'),
-                  fit: BoxFit.cover,
-                ),
-              ),
-              width: _posterWidth,
-              height: _posterHeight,
-              padding: EdgeInsets.only(
-                left: 32,
-                top: _posterPaddingTop,
-                bottom: 24,
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  // Header
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Align(
-                        alignment: _logoCentered
-                            ? Alignment.center
-                            : Alignment.centerLeft,
-                        child: Image.asset(_selectedLogo, width: _logoWidth),
+      body: Padding(
+        padding: const EdgeInsets.all(12),
+        child: LayoutBuilder(
+              builder: (context, _) {
+                return Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: RepaintBoundary(
+                      key: _exportKey,
+                      child: Container(
+                    width: _posterWidth,
+                    height: _posterHeight,
+                    padding: EdgeInsets.only(
+                      left: 32,
+                      top: _posterPaddingTop,
+                      right: 24,
+                      bottom: 24,
+                    ),
+                    decoration: const BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage('assets/poster_bg.jpg'),
+                        fit: BoxFit.cover,
                       ),
-                      SizedBox(height: _logoAyaSizedBoxHeight),
-                      Image.asset("assets/aya.png", width: _ayaWidth),
-                      SizedBox(height: _ayaSizedBoxHeight),
-                    ],
-                  ),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      // Images
-                      if (images.isNotEmpty)
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
                         Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Align(
+                              alignment: _logoCentered
+                                  ? Alignment.center
+                                  : Alignment.centerLeft,
+                              child: Image.asset(_selectedLogo, width: _logoWidth),
+                            ),
+                            SizedBox(height: _logoAyaSizedBoxHeight),
+                            Image.asset('assets/aya.png', width: _ayaWidth),
+                            SizedBox(height: _ayaSizedBoxHeight),
+                          ],
+                        ),
+                        Row(
                           mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            if (hasAnyImage)
+                              Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: imageFields.asMap().entries.map((entry) {
+                                  final imagePath = entry.value?.toString();
+                                  final hasImage = imagePath != null &&
+                                      imagePath.isNotEmpty &&
+                                      File(imagePath).existsSync();
 
-                          children: images.asMap().entries.map((entry) {
-                            final imageIndex = entry.key;
-                            final imagePath = entry.value;
-                            return Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                GestureDetector(
-                                  onTap: () => _editImage(imageIndex),
-                                  child: MouseRegion(
-                                    cursor: SystemMouseCursors.click,
-                                    child: Image.file(
-                                      File(imagePath),
-                                      width: _carImgWidth,
-                                      height: _carImgHeight,
-                                      fit: BoxFit.cover,
-                                      errorBuilder:
-                                          (context, error, stackTrace) {
-                                            return Container(
-                                              width: _carImgWidth,
-                                              height: _carImgHeight,
-                                              color: Colors.grey.shade300,
-                                              alignment: Alignment.center,
-                                              child: const Icon(
-                                                Icons.broken_image,
-                                                size: 64,
-                                                color: Colors.grey,
-                                              ),
-                                            );
-                                          },
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: GestureDetector(
+                                      onTap: () => _editImage(entry.key),
+                                      child: MouseRegion(
+                                        cursor: SystemMouseCursors.click,
+                                        child: hasImage
+                                            ? Stack(
+                                                alignment: Alignment.topRight,
+                                                children: [
+                                                  ClipRRect(
+                                                    borderRadius:
+                                                        BorderRadius.circular(14),
+                                                    child: Image.file(
+                                                      File(imagePath),
+                                                      width: _carImgWidth,
+                                                      height: _carImgHeight,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (
+                                                        context,
+                                                        error,
+                                                        stackTrace,
+                                                      ) {
+                                                        return _brokenImageCard();
+                                                      },
+                                                    ),
+                                                  ),
+                                                  Container(
+                                                    margin: const EdgeInsets.all(8),
+                                                    padding:
+                                                        const EdgeInsets.all(6),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.black54,
+                                                      borderRadius:
+                                                          BorderRadius.circular(20),
+                                                    ),
+                                                    child: const Icon(
+                                                      Icons.edit,
+                                                      color: Colors.white,
+                                                      size: 18,
+                                                    ),
+                                                  ),
+                                                ],
+                                              )
+                                            : _brokenImageCard(),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            if (hasAnyImage) SizedBox(width: _contentGap),
+                            SizedBox(
+                              height: _carInfoHeight,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  _info(
+                                    'النوع',
+                                    poster['type']?.toString() ?? '',
+                                    Image.asset(
+                                      'assets/car.png',
+                                      width: 32,
+                                      height: 32,
+                                      fit: BoxFit.contain,
                                     ),
                                   ),
-                                ),
-                                const SizedBox(height: 12),
-                              ],
-                            );
-                          }).toList(),
-                        ),
-
-                      // Details
-                      SizedBox(
-                        height: _carInfoHeight,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            _info(
-                              "النوع",
-                              poster['type'],
-                              Image.asset(
-                                "assets/car.png",
-                                width: 32,
-                                height: 32,
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                            _info(
-                              "الموديل",
-                              poster['model'],
-                              Image.asset(
-                                "assets/cars.png",
-                                width: 48,
-                                height: 48,
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                            _info(
-                              "السعر",
-                              "${_formatValue(poster['price'])} SAR",
-                              Image.asset(
-                                "assets/price.png",
-                                width: 32,
-                                height: 32,
-                                fit: BoxFit.contain,
-                              ),
-                              color: Colors.red,
-                            ),
-                            _info(
-                              "المسافة المقطوعة",
-                              "${_formatValue(poster['distance_traveled'])} ",
-                              Image.asset(
-                                "assets/speed.png",
-                                width: 32,
-                                height: 32,
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                            _info(
-                              "حجم المحرك",
-                              poster['engine_size'],
-                              Image.asset(
-                                "assets/maximize.png",
-                                width: 32,
-                                height: 32,
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                            _info(
-                              "الموقع",
-                              poster['location'],
-                              Image.asset(
-                                "assets/location.png",
-                                width: 32,
-                                height: 32,
-                                fit: BoxFit.contain,
+                                  _info(
+                                    'الموديل',
+                                    poster['model']?.toString() ?? '',
+                                    Image.asset(
+                                      'assets/cars.png',
+                                      width: 48,
+                                      height: 48,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                  _info(
+                                    'السعر',
+                                    poster['price'] == null
+                                        ? ''
+                                        : '${_formatValue(poster['price'])} SAR',
+                                    Image.asset(
+                                      'assets/price.png',
+                                      width: 32,
+                                      height: 32,
+                                      fit: BoxFit.contain,
+                                    ),
+                                    color: Colors.red,
+                                  ),
+                                  _info(
+                                    'المسافة المقطوعة',
+                                    _formatValue(poster['distance_traveled']),
+                                    Image.asset(
+                                      'assets/speed.png',
+                                      width: 32,
+                                      height: 32,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                  _info(
+                                    'حجم المحرك',
+                                    poster['engine_size']?.toString() ?? '',
+                                    Image.asset(
+                                      'assets/maximize.png',
+                                      width: 32,
+                                      height: 32,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                  _info(
+                                    'الموقع',
+                                    poster['location']?.toString() ?? '',
+                                    Image.asset(
+                                      'assets/location.png',
+                                      width: 32,
+                                      height: 32,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            PosterFooter(
+                              poster: poster,
+                              fontSize: _carInfoIconSize,
+                              selectedLogo: _selectedLogo,
+                            ),
+                            PosterNotes(
+                              notes: notes,
+                              notesTextSize: _notesTextSize,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                       ),
-                    ],
+                    ),
                   ),
-
-                  // Footer
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      PosterFooter(
-                        poster: poster,
-                        fontSize: _carInfoIconSize,
-                        selectedLogo: _selectedLogo,
-                      ),
-                      PosterNotes(notes: notes, notesTextSize: notesTextSize),
-                    ],
-                  ),
-                ],
-              ),
+                );
+              },
             ),
-          ),
-        ),
+      ),
+    );
+  }
+
+  Widget _brokenImageCard() {
+    return Container(
+      width: _carImgWidth,
+      height: _carImgHeight,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade300,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      alignment: Alignment.center,
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.broken_image_outlined, size: 48, color: Colors.grey),
+          SizedBox(height: 8),
+          Text('Tap to replace'),
+        ],
       ),
     );
   }
 
   Widget _info(
     String label,
-    String? value,
+    String value,
     Widget icon, {
     Color color = Colors.black87,
   }) {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.all(Radius.circular(12)),
-      ),
-      width: 420,
+      width: _detailsBoxWidth,
       padding: EdgeInsets.only(
         left: 24,
-        right: 48,
+        right: 32,
         top: _carInfoPaddingY,
         bottom: _carInfoPaddingY,
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                icon,
-                Flexible(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Directionality(
+        textDirection: ui.TextDirection.rtl,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 142,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
                   child: Text(
-                    "$value ",
-                    textAlign: TextAlign.right,
+                    label,
                     maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: _carInfoTextSize,
+                      fontSize: _carInfoIconSize,
+                      fontFamily: 'GE_SS_Medium',
                       color: color,
-                      fontFamily: 'Monda',
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-
-                Text(
-                  " : $label",
-                  textAlign: TextAlign.right,
-                  maxLines: 1,
-                  overflow: TextOverflow.visible,
-                  style: TextStyle(
-                    fontSize: _carInfoIconSize,
-                    fontFamily: 'GE_SS_Medium',
-                    color: color,
-                    fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Directionality(
+                    textDirection: ui.TextDirection.ltr,
+                    child: Text(
+                      value,
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontSize: _carInfoTextSize,
+                        color: color,
+                        fontFamily: 'Monda',
+                      ),
+                    ),
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            SizedBox(width: 48, child: Center(child: icon)),
+          ],
+        ),
       ),
     );
   }

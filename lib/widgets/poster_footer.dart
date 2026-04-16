@@ -14,41 +14,46 @@ class PosterFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final phone = poster['phone_number']?.toString() ?? '';
+    final webId = poster['web_id']?.toString() ?? '';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.start,
           children: [
             Image.asset(
-              "assets/phone.png",
+              'assets/phone.png',
               width: 32,
               height: 32,
               fit: BoxFit.cover,
             ),
             const SizedBox(width: 6),
             Text(
-              poster['phone_number'] ?? '',
+              phone,
               style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
           ],
         ),
         const SizedBox(height: 8),
-        if (selectedLogo == "assets/sayaracom.png")
-          Text(
-            "سيارة كوم بالتعاون\nمع بيت التملك",
-            style: TextStyle(
-              fontSize: fontSize,
-              color: Colors.black,
-              fontFamily: 'GE_SS_Medium',
-              fontWeight: FontWeight.bold,
+        if (selectedLogo == 'assets/sayaracom.png')
+          const Directionality(
+            textDirection: TextDirection.rtl,
+            child: Text(
+              'سيارة كوم بالتعاون\nمع بيت التملك',
+              style: TextStyle(
+                fontSize: 24,
+                color: Colors.black,
+                fontFamily: 'GE_SS_Medium',
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.right,
             ),
-            textAlign: TextAlign.right,
           ),
-        const SizedBox(height: 12),
+        if (selectedLogo == 'assets/sayaracom.png') const SizedBox(height: 12),
         Text(
-          "#${poster['web_id'].toString()}",
-          style: TextStyle(fontStyle: FontStyle.italic, fontSize: 16),
+          '#$webId',
+          style: TextStyle(fontStyle: FontStyle.italic, fontSize: fontSize),
           textAlign: TextAlign.end,
         ),
       ],

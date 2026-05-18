@@ -11,8 +11,6 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:poster_tool/data/poster_db_service.dart';
 import 'package:poster_tool/widgets/custom_icon_btn.dart';
-import 'package:poster_tool/widgets/poster_footer.dart';
-import 'package:poster_tool/widgets/poster_notes.dart';
 
 class PosterViewerScreen extends StatefulWidget {
   final Map<String, dynamic> poster;
@@ -29,98 +27,93 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
   final CropController _cropController = CropController();
 
   bool _exporting = false;
-  String _selectedLogo = 'assets/green_logo.png';
-  bool _logoCentered = false;
+  String _market = 'jordan';
   String _platform = 'meta';
 
-  double _posterWidth = 1080;
-  double _posterHeight = 1350;
-  double _posterPaddingTop = 28;
-  double _logoWidth = 178;
-  double _logoAyaSizedBoxHeight = 18;
-  double _ayaWidth = 420;
-  double _ayaSizedBoxHeight = 26;
-  double _carImgWidth = 420;
-  double _carImgHeight = 260;
-  double _carInfoHeight = 660;
-  double _carInfoPaddingY = 8;
-  double _carInfoTextSize = 24;
-  double _carInfoIconSize = 22;
-  double _notesTextSize = 24;
-  double _contentGap = 64;
-  double _detailsBoxWidth = 420;
-
-  void _changePlatform(String platform) {
-    if (platform == 'snap') {
-      setState(() {
-        _platform = 'snap';
-        _posterWidth = 1080;
-        _posterHeight = 1920;
-        _posterPaddingTop = 34;
-        _logoWidth = 210;
-        _logoAyaSizedBoxHeight = 32;
-        _ayaWidth = 534;
-        _ayaSizedBoxHeight = 36;
-        _carImgWidth = 500;
-        _carImgHeight = 330;
-        _carInfoHeight = 1020;
-        _carInfoPaddingY = 16;
-        _carInfoTextSize = 26;
-        _carInfoIconSize = 24;
-        _notesTextSize = 28;
-        _contentGap = 52;
-        _detailsBoxWidth = 420;
-      });
-      return;
+  _PosterTemplateLayout get _templateLayout {
+    if (_platform == 'snap') {
+      return _PosterTemplateLayout(
+        asset: _market == 'saudi'
+            ? 'assets/template/new_SA_snap.jpeg'
+            : 'assets/template/new_JOD_snap.jpeg',
+        exportPrefix: _market == 'saudi' ? 'saudi_snap' : 'jordan_snap',
+        width: 900,
+        height: 1600,
+        imagesLeft: 38,
+        imagesTop: 382,
+        imageWidth: 364,
+        imageHeight: 265,
+        imageGap: 14,
+        valueLeft: 536,
+        valueWidth: 214,
+        valueTops: const [367, 540, 710, 875, 1046, 1214],
+        valueHeight: 62,
+        valueFontSize: 30,
+        notesLeft: 620,
+        notesTop: 1380,
+        notesWidth: 250,
+        notesFontSize: 21,
+        phoneLeft: 104,
+        phoneTop: 1430,
+        phoneWidth: 165,
+        phoneFontSize: 24,
+      );
     }
 
-    setState(() {
-      _platform = 'meta';
-      _posterWidth = 1080;
-      _posterHeight = 1350;
-      _posterPaddingTop = 28;
-      _logoWidth = 178;
-      _logoAyaSizedBoxHeight = 18;
-      _ayaWidth = 420;
-      _ayaSizedBoxHeight = 26;
-      _carImgWidth = 420;
-      _carImgHeight = 260;
-      _carInfoHeight = 660;
-      _carInfoPaddingY = 8;
-      _carInfoTextSize = 24;
-      _carInfoIconSize = 22;
-      _notesTextSize = 24;
-      _contentGap = 64;
-      _detailsBoxWidth = 420;
-    });
+    return _PosterTemplateLayout(
+      asset: _market == 'saudi'
+          ? 'assets/template/new_SA_insta.jpeg'
+          : 'assets/template/new_JOD_insta.jpeg',
+      exportPrefix: _market == 'saudi' ? 'saudi_meta' : 'jordan_meta',
+      width: 1080,
+      height: 1350,
+      imagesLeft: 42,
+      imagesTop: 318,
+      imageWidth: 520,
+      imageHeight: 255,
+      imageGap: 14,
+      valueLeft: 688,
+      valueWidth: 242,
+      valueTops: const [300, 440, 576, 710, 843, 970],
+      valueHeight: 52,
+      valueFontSize: 30,
+      notesLeft: 784,
+      notesTop: 1188,
+      notesWidth: 258,
+      notesFontSize: 22,
+      phoneLeft: 140,
+      phoneTop: 1172,
+      phoneWidth: 220,
+      phoneFontSize: 24,
+    );
   }
 
   void _applyJordanMeta() {
-    _changePlatform('meta');
-    _changeLogo('assets/green_logo.png');
+    setState(() {
+      _market = 'jordan';
+      _platform = 'meta';
+    });
   }
 
   void _applyJordanSnap() {
-    _changePlatform('snap');
-    _changeLogo('assets/green_logo.png');
+    setState(() {
+      _market = 'jordan';
+      _platform = 'snap';
+    });
   }
 
   void _applySaudiMeta() {
-    _changePlatform('meta');
-    _changeLogo('assets/sayaracom.png');
+    setState(() {
+      _market = 'saudi';
+      _platform = 'meta';
+    });
   }
 
   void _applySaudiSnap() {
-    _changePlatform('snap');
-    _changeLogo('assets/sayaracom.png');
-  }
-
-  void _changeLogo(String logo) {
-    setState(() => _selectedLogo = logo);
-  }
-
-  void _toggleLogoAlignment() {
-    setState(() => _logoCentered = !_logoCentered);
+    setState(() {
+      _market = 'saudi';
+      _platform = 'snap';
+    });
   }
 
   String _formatValue(dynamic value) {
@@ -153,13 +146,17 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Tap any poster image to replace and crop it.'),
+              Text(
+                'The new poster templates are used directly as the base design.',
+              ),
               SizedBox(height: 8),
-              Text('Use JO/SA buttons to switch market branding.'),
+              Text('Tap any image slot to replace and crop it.'),
               SizedBox(height: 8),
-              Text('Blue buttons create Meta layouts and amber buttons create Snap layouts.'),
+              Text(
+                'Use JO/SA buttons to switch market branding and Meta/Snap output.',
+              ),
               SizedBox(height: 8),
-              Text('Export saves a PNG into the app documents folder.'),
+              Text('Export saves the final PNG exactly as previewed.'),
             ],
           ),
           actions: [
@@ -277,16 +274,16 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
       }
 
       setState(() {});
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Image updated successfully.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Image updated successfully.')),
+      );
     } catch (error) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update image: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to update image: $error')));
     }
   }
 
@@ -301,8 +298,9 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
       await Future<void>.delayed(Duration.zero);
       await WidgetsBinding.instance.endOfFrame;
 
-      final boundary = _exportKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
+      final boundary =
+          _exportKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
       if (boundary == null) {
         throw Exception('Poster preview is not ready yet.');
       }
@@ -323,7 +321,7 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
       final file = File(
         p.join(
           exportDir.path,
-          '${_platform}_poster_${widget.poster['web_id']}_${DateTime.now().millisecondsSinceEpoch}.png',
+          '${_templateLayout.exportPrefix}_${widget.poster['web_id']}_${DateTime.now().millisecondsSinceEpoch}.png',
         ),
       );
       await file.writeAsBytes(pngBytes);
@@ -364,15 +362,24 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
   @override
   Widget build(BuildContext context) {
     final poster = widget.poster;
-    final imageFields = [
-      poster['image1'],
-      poster['image2'],
-      poster['image3'],
-    ];
+    final imageFields = [poster['image1'], poster['image2'], poster['image3']];
     final hasAnyImage = imageFields.any(
       (image) => image != null && image.toString().isNotEmpty,
     );
     final notes = (poster['notes'] as List?)?.cast<String>() ?? <String>[];
+    final layout = _templateLayout;
+    final values = [
+      poster['type']?.toString() ?? '',
+      poster['model']?.toString() ?? '',
+      poster['price'] == null
+          ? ''
+          : (_market == 'saudi'
+                ? 'SAR ${_formatValue(poster['price'])}'
+                : '${_formatValue(poster['price'])} JOD'),
+      _formatValue(poster['distance_traveled']),
+      poster['engine_size']?.toString() ?? '',
+      poster['location']?.toString() ?? '',
+    ];
 
     return Scaffold(
       appBar: AppBar(
@@ -383,16 +390,6 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
             onPressed: _showLayoutHelp,
             icon: const Icon(Icons.help_outline),
           ),
-          IconButton(
-            tooltip: _logoCentered ? 'Align logo left' : 'Center logo',
-            onPressed: _toggleLogoAlignment,
-            icon: Icon(
-              _logoCentered
-                  ? Icons.align_horizontal_left
-                  : Icons.align_horizontal_center,
-            ),
-          ),
-          const SizedBox(width: 12),
           CustomIconBtn(
             text: 'JO',
             color: Colors.blue,
@@ -435,216 +432,151 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(12),
-        child: LayoutBuilder(
-              builder: (context, _) {
-                return Center(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: RepaintBoundary(
-                      key: _exportKey,
-                      child: Container(
-                    width: _posterWidth,
-                    height: _posterHeight,
-                    padding: EdgeInsets.only(
-                      left: 32,
-                      top: _posterPaddingTop,
-                      right: 24,
-                      bottom: 24,
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: RepaintBoundary(
+              key: _exportKey,
+              child: SizedBox(
+                width: layout.width,
+                height: layout.height,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Image.asset(layout.asset, fit: BoxFit.cover),
                     ),
-                    decoration: const BoxDecoration(
-                      image: DecorationImage(
-                        image: AssetImage('assets/poster_bg.jpg'),
-                        fit: BoxFit.cover,
+                    if (hasAnyImage)
+                      Positioned(
+                        left: layout.imagesLeft,
+                        top: layout.imagesTop,
+                        child: Column(
+                          children: imageFields.asMap().entries.map((entry) {
+                            final imagePath = entry.value?.toString();
+                            final hasImage =
+                                imagePath != null &&
+                                imagePath.isNotEmpty &&
+                                File(imagePath).existsSync();
+
+                            return Padding(
+                              padding: EdgeInsets.only(
+                                bottom: entry.key == imageFields.length - 1
+                                    ? 0
+                                    : layout.imageGap,
+                              ),
+                              child: GestureDetector(
+                                onTap: () => _editImage(entry.key),
+                                child: MouseRegion(
+                                  cursor: SystemMouseCursors.click,
+                                  child: hasImage
+                                      ? Stack(
+                                          alignment: Alignment.topRight,
+                                          children: [
+                                            ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              child: Image.file(
+                                                File(imagePath),
+                                                width: layout.imageWidth,
+                                                height: layout.imageHeight,
+                                                fit: BoxFit.cover,
+                                              ),
+                                            ),
+                                            Container(
+                                              margin: const EdgeInsets.all(8),
+                                              padding: const EdgeInsets.all(6),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black54,
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                              ),
+                                              child: const Icon(
+                                                Icons.edit,
+                                                color: Colors.white,
+                                                size: 18,
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : _brokenImageCard(layout),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ...values.asMap().entries.map(
+                      (entry) => _templateValue(
+                        layout,
+                        top: layout.valueTops[entry.key],
+                        value: entry.value,
+                        color: entry.key == 2 ? Colors.red : Colors.black,
                       ),
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        Column(
-                          children: [
-                            Align(
-                              alignment: _logoCentered
-                                  ? Alignment.center
-                                  : Alignment.centerLeft,
-                              child: Image.asset(_selectedLogo, width: _logoWidth),
-                            ),
-                            SizedBox(height: _logoAyaSizedBoxHeight),
-                            Image.asset('assets/aya.png', width: _ayaWidth),
-                            SizedBox(height: _ayaSizedBoxHeight),
-                          ],
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            if (hasAnyImage)
-                              Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: imageFields.asMap().entries.map((entry) {
-                                  final imagePath = entry.value?.toString();
-                                  final hasImage = imagePath != null &&
-                                      imagePath.isNotEmpty &&
-                                      File(imagePath).existsSync();
-
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: GestureDetector(
-                                      onTap: () => _editImage(entry.key),
-                                      child: MouseRegion(
-                                        cursor: SystemMouseCursors.click,
-                                        child: hasImage
-                                            ? Stack(
-                                                alignment: Alignment.topRight,
-                                                children: [
-                                                  ClipRRect(
-                                                    borderRadius:
-                                                        BorderRadius.circular(14),
-                                                    child: Image.file(
-                                                      File(imagePath),
-                                                      width: _carImgWidth,
-                                                      height: _carImgHeight,
-                                                      fit: BoxFit.cover,
-                                                      errorBuilder: (
-                                                        context,
-                                                        error,
-                                                        stackTrace,
-                                                      ) {
-                                                        return _brokenImageCard();
-                                                      },
-                                                    ),
-                                                  ),
-                                                  Container(
-                                                    margin: const EdgeInsets.all(8),
-                                                    padding:
-                                                        const EdgeInsets.all(6),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.black54,
-                                                      borderRadius:
-                                                          BorderRadius.circular(20),
-                                                    ),
-                                                    child: const Icon(
-                                                      Icons.edit,
-                                                      color: Colors.white,
-                                                      size: 18,
-                                                    ),
-                                                  ),
-                                                ],
-                                              )
-                                            : _brokenImageCard(),
+                    if (notes.isNotEmpty)
+                      Positioned(
+                        left: layout.notesLeft,
+                        top: layout.notesTop,
+                        width: layout.notesWidth,
+                        child: Directionality(
+                          textDirection: ui.TextDirection.rtl,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: notes
+                                .map(
+                                  (note) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 6),
+                                    child: Text(
+                                      note,
+                                      textAlign: TextAlign.right,
+                                      maxLines: 2,
+                                      style: TextStyle(
+                                        fontSize: layout.notesFontSize,
+                                        fontFamily: 'GE_SS',
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                  );
-                                }).toList(),
-                              ),
-                            if (hasAnyImage) SizedBox(width: _contentGap),
-                            SizedBox(
-                              height: _carInfoHeight,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  _info(
-                                    'النوع',
-                                    poster['type']?.toString() ?? '',
-                                    Image.asset(
-                                      'assets/car.png',
-                                      width: 32,
-                                      height: 32,
-                                      fit: BoxFit.contain,
-                                    ),
                                   ),
-                                  _info(
-                                    'الموديل',
-                                    poster['model']?.toString() ?? '',
-                                    Image.asset(
-                                      'assets/cars.png',
-                                      width: 48,
-                                      height: 48,
-                                      fit: BoxFit.contain,
-                                    ),
-                                  ),
-                                  _info(
-                                    'السعر',
-                                    poster['price'] == null
-                                        ? ''
-                                        : '${_formatValue(poster['price'])} SAR',
-                                    Image.asset(
-                                      'assets/price.png',
-                                      width: 32,
-                                      height: 32,
-                                      fit: BoxFit.contain,
-                                    ),
-                                    color: Colors.red,
-                                  ),
-                                  _info(
-                                    'المسافة المقطوعة',
-                                    _formatValue(poster['distance_traveled']),
-                                    Image.asset(
-                                      'assets/speed.png',
-                                      width: 32,
-                                      height: 32,
-                                      fit: BoxFit.contain,
-                                    ),
-                                  ),
-                                  _info(
-                                    'حجم المحرك',
-                                    poster['engine_size']?.toString() ?? '',
-                                    Image.asset(
-                                      'assets/maximize.png',
-                                      width: 32,
-                                      height: 32,
-                                      fit: BoxFit.contain,
-                                    ),
-                                  ),
-                                  _info(
-                                    'الموقع',
-                                    poster['location']?.toString() ?? '',
-                                    Image.asset(
-                                      'assets/location.png',
-                                      width: 32,
-                                      height: 32,
-                                      fit: BoxFit.contain,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                                )
+                                .toList(),
+                          ),
                         ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            PosterFooter(
-                              poster: poster,
-                              fontSize: _carInfoIconSize,
-                              selectedLogo: _selectedLogo,
-                            ),
-                            PosterNotes(
-                              notes: notes,
-                              notesTextSize: _notesTextSize,
-                            ),
-                          ],
+                      ),
+                    Positioned(
+                      left: layout.phoneLeft,
+                      top: layout.phoneTop,
+                      width: layout.phoneWidth,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          poster['phone_number']?.toString() ?? '',
+                          style: TextStyle(
+                            fontSize: layout.phoneFontSize,
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFF111111),
+                            fontFamily: 'Monda',
+                          ),
                         ),
-                      ],
-                    ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  ],
+                ),
+              ),
             ),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _brokenImageCard() {
+  Widget _brokenImageCard(_PosterTemplateLayout layout) {
     return Container(
-      width: _carImgWidth,
-      height: _carImgHeight,
+      width: layout.imageWidth,
+      height: layout.imageHeight,
       decoration: BoxDecoration(
         color: Colors.grey.shade300,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(8),
       ),
       alignment: Alignment.center,
       child: const Column(
@@ -658,75 +590,91 @@ class _PosterViewerScreenState extends State<PosterViewerScreen> {
     );
   }
 
-  Widget _info(
-    String label,
-    String value,
-    Widget icon, {
-    Color color = Colors.black87,
+  Widget _templateValue(
+    _PosterTemplateLayout layout, {
+    required double top,
+    required String value,
+    required Color color,
   }) {
-    return Container(
-      width: _detailsBoxWidth,
-      padding: EdgeInsets.only(
-        left: 24,
-        right: 32,
-        top: _carInfoPaddingY,
-        bottom: _carInfoPaddingY,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Directionality(
-        textDirection: ui.TextDirection.rtl,
-        child: Row(
-          children: [
-            SizedBox(
-              width: 142,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    style: TextStyle(
-                      fontSize: _carInfoIconSize,
-                      fontFamily: 'GE_SS_Medium',
-                      color: color,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+    return Positioned(
+      left: layout.valueLeft,
+      top: top,
+      width: layout.valueWidth,
+      height: layout.valueHeight,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Directionality(
+              textDirection: ui.TextDirection.ltr,
+              child: Text(
+                value,
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: layout.valueFontSize,
+                  color: color,
+                  fontFamily: 'Monda',
+                  fontWeight: color == Colors.red
+                      ? FontWeight.bold
+                      : FontWeight.w600,
                 ),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerRight,
-                  child: Directionality(
-                    textDirection: ui.TextDirection.ltr,
-                    child: Text(
-                      value,
-                      maxLines: 1,
-                      style: TextStyle(
-                        fontSize: _carInfoTextSize,
-                        color: color,
-                        fontFamily: 'Monda',
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            SizedBox(width: 48, child: Center(child: icon)),
-          ],
+          ),
         ),
       ),
     );
   }
+}
+
+class _PosterTemplateLayout {
+  const _PosterTemplateLayout({
+    required this.asset,
+    required this.exportPrefix,
+    required this.width,
+    required this.height,
+    required this.imagesLeft,
+    required this.imagesTop,
+    required this.imageWidth,
+    required this.imageHeight,
+    required this.imageGap,
+    required this.valueLeft,
+    required this.valueWidth,
+    required this.valueTops,
+    required this.valueHeight,
+    required this.valueFontSize,
+    required this.notesLeft,
+    required this.notesTop,
+    required this.notesWidth,
+    required this.notesFontSize,
+    required this.phoneLeft,
+    required this.phoneTop,
+    required this.phoneWidth,
+    required this.phoneFontSize,
+  });
+
+  final String asset;
+  final String exportPrefix;
+  final double width;
+  final double height;
+  final double imagesLeft;
+  final double imagesTop;
+  final double imageWidth;
+  final double imageHeight;
+  final double imageGap;
+  final double valueLeft;
+  final double valueWidth;
+  final List<double> valueTops;
+  final double valueHeight;
+  final double valueFontSize;
+  final double notesLeft;
+  final double notesTop;
+  final double notesWidth;
+  final double notesFontSize;
+  final double phoneLeft;
+  final double phoneTop;
+  final double phoneWidth;
+  final double phoneFontSize;
 }

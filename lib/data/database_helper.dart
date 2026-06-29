@@ -4,7 +4,7 @@ import 'package:sqflite/sqflite.dart';
 
 class DatabaseHelper {
   static const _dbName = 'poster_tool.db';
-  static const _dbVersion = 2;
+  static const _dbVersion = 3;
 
   DatabaseHelper._privateConstructor();
 
@@ -89,6 +89,12 @@ FROM poster_old
         await txn.execute('DROP TABLE poster_old');
       });
     }
+
+    if (oldVersion < 3) {
+      await db.execute(
+        'ALTER TABLE poster ADD COLUMN editor_state TEXT',
+      );
+    }
   }
 
   Future<void> _createUserTable(DatabaseExecutor db) async {
@@ -116,7 +122,8 @@ CREATE TABLE poster(
   engine_size TEXT,
   location TEXT,
   notes TEXT,
-  phone_number TEXT
+  phone_number TEXT,
+  editor_state TEXT
 )
 ''');
   }

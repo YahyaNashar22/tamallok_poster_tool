@@ -20,6 +20,7 @@ class PosterDbService {
     List<String>? notes,
     String? phoneNumber,
     required String webId,
+    Map<String, dynamic>? editorState,
   }) async {
     final db = await DatabaseHelper.instance.database;
 
@@ -36,6 +37,7 @@ class PosterDbService {
       'notes': _encodeNotes(notes),
       'phone_number': _normalizeText(phoneNumber),
       'web_id': webId.trim(),
+      'editor_state': _encodeEditorState(editorState),
     };
 
     return db.insert('poster', data);
@@ -70,6 +72,7 @@ class PosterDbService {
     List<String>? notes,
     String? phoneNumber,
     String? webId,
+    Map<String, dynamic>? editorState,
   }) async {
     final db = await DatabaseHelper.instance.database;
 
@@ -90,6 +93,20 @@ class PosterDbService {
       data['phone_number'] = _normalizeText(phoneNumber);
     }
     if (webId != null) data['web_id'] = webId.trim();
+    if (editorState != null) {
+      data['editor_state'] = _encodeEditorState(editorState);
+    }
+
+    if (data.isEmpty) {
+      return 0;
+    }
+
+    return db.update('poster', data, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> updatePosterDataById(int id, Map<String, dynamic> updates) async {
+    final db = await DatabaseHelper.instance.database;
+    final data = _normalizeUpdateData(updates);
 
     if (data.isEmpty) {
       return 0;
@@ -107,6 +124,7 @@ class PosterDbService {
     final data = Map<String, dynamic>.from(row);
     data['notes'] = _decodeNotes(data['notes']);
     data['web_id'] = data['web_id']?.toString() ?? '';
+    data['editor_state'] = _decodeEditorState(data['editor_state']);
     return data;
   }
 
@@ -147,5 +165,89 @@ class PosterDbService {
       }
     }
     return <String>[];
+  }
+
+  String? _encodeEditorState(Map<String, dynamic>? editorState) {
+    if (editorState == null || editorState.isEmpty) {
+      return null;
+    }
+    return jsonEncode(editorState);
+  }
+
+  Map<String, dynamic> _decodeEditorState(dynamic rawEditorState) {
+    if (rawEditorState == null) {
+      return <String, dynamic>{};
+    }
+    if (rawEditorState is Map<String, dynamic>) {
+      return rawEditorState;
+    }
+    if (rawEditorState is String && rawEditorState.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawEditorState);
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        }
+        if (decoded is Map) {
+          return decoded.map(
+            (key, value) => MapEntry(key.toString(), value),
+          );
+        }
+      } catch (_) {
+        return <String, dynamic>{};
+      }
+    }
+    return <String, dynamic>{};
+  }
+
+  Map<String, dynamic> _normalizeUpdateData(Map<String, dynamic> updates) {
+    final data = <String, dynamic>{};
+
+    if (updates.containsKey('image1')) {
+      data['image1'] = _normalizeText(updates['image1']?.toString());
+    }
+    if (updates.containsKey('image2')) {
+      data['image2'] = _normalizeText(updates['image2']?.toString());
+    }
+    if (updates.containsKey('image3')) {
+      data['image3'] = _normalizeText(updates['image3']?.toString());
+    }
+    if (updates.containsKey('type')) {
+      data['type'] = updates['type']?.toString().trim() ?? '';
+    }
+    if (updates.containsKey('model')) {
+      data['model'] = updates['model']?.toString().trim() ?? '';
+    }
+    if (updates.containsKey('price')) {
+      data['price'] = updates['price'];
+    }
+    if (updates.containsKey('distance_traveled')) {
+      data['distance_traveled'] = updates['distance_traveled'];
+    }
+    if (updates.containsKey('engine_size')) {
+      data['engine_size'] = _normalizeText(updates['engine_size']?.toString());
+    }
+    if (updates.containsKey('location')) {
+      data['location'] = _normalizeText(updates['location']?.toString());
+    }
+    if (updates.containsKey('notes')) {
+      final notes = updates['notes'];
+      data['notes'] = notes is List<String> ? _encodeNotes(notes) : null;
+    }
+    if (updates.containsKey('phone_number')) {
+      data['phone_number'] = _normalizeText(
+        updates['phone_number']?.toString(),
+      );
+    }
+    if (updates.containsKey('web_id')) {
+      data['web_id'] = updates['web_id']?.toString().trim() ?? '';
+    }
+    if (updates.containsKey('editor_state')) {
+      final editorState = updates['editor_state'];
+      data['editor_state'] = editorState is Map<String, dynamic>
+          ? _encodeEditorState(editorState)
+          : null;
+    }
+
+    return data;
   }
 }
